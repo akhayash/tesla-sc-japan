@@ -1,0 +1,1 @@
+{"n": 176964, "columns": ["lon", "lat", "pop", "pd10", "pd30", "pd50"], "bandwidths_km": [10, 30, 50], "population_total": 126146099.0, "lcc": "+proj=lcc +lat_1=30 +lat_2=42 +lat_0=36 +lon_0=137 +datum=WGS84 +units=m"}

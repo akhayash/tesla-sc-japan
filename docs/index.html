@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>テスラ スーパーチャージャー充足度マップ｜日本</title>
+  <meta name="description" content="日本のテスラ スーパーチャージャー配置を人口分布と重ね、人口に対して充電拠点が少ない地域を可視化します。">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23e31937'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>スーパーチャージャー充足度マップ</h1>
+      <p class="sub">日本のテスラ スーパーチャージャー（SC）と人口分布</p>
+    </header>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" data-mode="A" class="active">行政区別</button>
+      <button role="tab" data-mode="B">1kmメッシュ</button>
+    </div>
+
+    <section class="controls">
+      <div class="ctl" data-show="A">
+        <label>集計単位</label>
+        <div class="seg" data-key="unit">
+          <button data-v="pref" class="active">都道府県</button>
+          <button data-v="muni_city">市区町村</button>
+          <button data-v="muni_ward">市区町村（政令市は区）</button>
+        </div>
+      </div>
+      <div class="ctl" data-show="A">
+        <label for="metric">指標</label>
+        <select id="metric">
+          <option value="p">人口10万人あたりSC数</option>
+          <option value="a">30km圏アクセス（人口10万人あたり）</option>
+          <option value="d">最寄りSCまでの平均距離</option>
+          <option value="n">SC数</option>
+        </select>
+      </div>
+      <div class="ctl" data-show="B">
+        <label>表示</label>
+        <div class="seg" data-key="layer">
+          <button data-v="ratio" class="active">充足率</button>
+          <button data-v="pop">人口</button>
+          <button data-v="sc">SC密度</button>
+        </div>
+      </div>
+      <div class="ctl" data-show="B">
+        <label>平滑化の幅</label>
+        <div class="seg" data-key="bw">
+          <button data-v="10">10km</button>
+          <button data-v="30" class="active">30km</button>
+          <button data-v="50">50km</button>
+        </div>
+      </div>
+      <div class="ctl" id="ctl-weight">
+        <label>数え方</label>
+        <div class="seg" data-key="weight">
+          <button data-v="t" class="active">ストール数</button>
+          <button data-v="s">サイト数</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label>対象</label>
+        <div class="seg" data-key="status">
+          <button data-v="o" class="active">営業中</button>
+          <button data-v="a">計画・建設中を含む</button>
+        </div>
+      </div>
+      <div class="ctl checks">
+        <label><input type="checkbox" id="show-sc" checked> SCの位置を表示</label>
+        <label data-show="B"><input type="checkbox" id="pop-alpha" checked> 人口の少ないメッシュを薄く表示</label>
+      </div>
+    </section>
+
+    <section id="legend"></section>
+    <p id="metric-note" class="note"></p>
+
+    <section id="ranking" data-show="A">
+      <div class="rank-head">
+        <h2 id="rank-title">不足している地域</h2>
+        <select id="rank-min" aria-label="人口で絞り込み">
+          <option value="0">全て</option>
+          <option value="50000">人口5万人以上</option>
+          <option value="100000">人口10万人以上</option>
+          <option value="300000">人口30万人以上</option>
+        </select>
+      </div>
+      <ol id="rank-list"></ol>
+    </section>
+
+    <section id="summary" data-show="B"></section>
+
+    <footer>
+      <p>
+        SC：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>（取得日 <span id="fetched">-</span>）<br>
+        人口：<a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">令和2年国勢調査（総務省統計局）</a>、地域メッシュ統計<br>
+        境界：<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報 行政区域データ</a>（<a href="https://github.com/smartnews-smri/japan-topography" target="_blank" rel="noopener">簡略化版</a>）を加工<br>
+        背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>
+      </p>
+      <p class="muted">SCは長距離移動の経路充電が主用途のため、人口だけで需要を表すものではありません。</p>
+    </footer>
+  </aside>
+
+  <main id="map"></main>
+  <div id="tooltip" hidden></div>
+  <div id="loading">読み込み中…</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.0.38/dist.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+

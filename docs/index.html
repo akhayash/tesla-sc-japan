@@ -13,7 +13,7 @@
   <aside id="panel">
     <header>
       <h1>スーパーチャージャー充足度マップ</h1>
-      <p class="sub">日本のテスラ スーパーチャージャー（SC）と人口分布</p>
+      <p class="sub">日本のテスラ スーパーチャージャー（SC）と人口分布<br><a href="about.html">データ出典と算出方法</a></p>
     </header>
 
     <div class="tabs" role="tablist">
@@ -94,13 +94,15 @@
     <section id="summary" data-show="B"></section>
 
     <footer>
+      <h2 class="src-title">データ出典</h2>
       <p>
-        SC：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>（取得日 <span id="fetched">-</span>）<br>
-        人口：<a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">令和2年国勢調査（総務省統計局）</a>、地域メッシュ統計<br>
-        境界：<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報 行政区域データ</a>（<a href="https://github.com/smartnews-smri/japan-topography" target="_blank" rel="noopener">簡略化版</a>）を加工<br>
-        背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>
+        SC位置：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a> のデータを加工（取得日 <span id="fetched">-</span>）<br>
+        人口：出典 <a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">政府統計の総合窓口（e-Stat）</a>「令和2年国勢調査」（市区町村別の主な結果・地域メッシュ統計）を加工して作成<br>
+        境界：「<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報（行政区域データ）</a>」（国土交通省）を加工して作成（<a href="https://github.com/smartnews-smri/japan-topography" target="_blank" rel="noopener">スマートニュース メディア研究所 簡略化版</a>、2021年1月1日時点）<br>
+        背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院 地理院タイル</a>
       </p>
-      <p class="muted">SCは長距離移動の経路充電が主用途のため、人口だけで需要を表すものではありません。</p>
+      <p><a href="about.html">データの詳細・利用条件・算出方法</a>　｜　<a href="https://github.com/akhayash/tesla-sc-japan" target="_blank" rel="noopener">ソースコード</a></p>
+      <p class="muted">SCは長距離移動の経路充電が主用途のため、人口だけで需要を表すものではありません。本サイトは非公式の可視化で、Tesla, Inc. とは関係がありません。</p>
     </footer>
   </aside>
 

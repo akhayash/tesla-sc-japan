@@ -85,6 +85,10 @@
     },
     center: [137.5, 37.5], zoom: 4.6, minZoom: 3.5, maxZoom: 13,
     dragRotate: false, pitchWithRotate: false,
+    attributionControl: {
+      compact: false,
+      customAttribution: 'SC: <a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>｜人口: <a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">e-Stat</a> 令和2年国勢調査を加工｜境界: <a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報（国土交通省）</a>を加工',
+    },
   });
   map = map0;
   map.touchZoomRotate.disableRotation();
@@ -530,6 +534,7 @@
   function fmtPop(p) { return p >= 1e8 ? `${(p / 1e8).toFixed(2)}億人` : `${nf.format(Math.round(p / 1e4))}万人`; }
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 })();
+
 
 
 

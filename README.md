@@ -26,6 +26,8 @@
 を表示します。1 未満は人口比どおりの配置に比べてSCが少ない地域です。人口密度の平滑化は事前計算、SC密度はブラウザで計算しています。
 
 ## データ出典
+サイト上の「[データと算出方法](https://akhayash.github.io/tesla-sc-japan/about.html)」ページに、出典・時点・利用条件・加工内容を掲載しています。
+
 - SC：[supercharge.info](https://supercharge.info/)（有志によるデータベース。計画中サイトでストール数未定のものは営業中サイトの中央値で推定）
 - 人口：令和2年国勢調査（総務省統計局）都道府県・市区町村別の主な結果、地域メッシュ統計（3次メッシュ）— [e-Stat](https://www.e-stat.go.jp/)
 - 行政区域：[国土数値情報 行政区域データ](https://nlftp.mlit.go.jp/ksj/)（国土交通省）を加工した [smartnews-smri/japan-topography](https://github.com/smartnews-smri/japan-topography)（2021年1月1日時点）を加工

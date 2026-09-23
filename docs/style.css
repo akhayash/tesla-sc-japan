@@ -48,3 +48,5 @@ footer a { color: #0969da; }
   #loading { inset: 0; }
 }
 [hidden] { display: none !important; }
+footer .src-title { font-size: 12px; margin: 0 0 4px; color: #1f2328; }
+.sub a { font-size: 12px; }

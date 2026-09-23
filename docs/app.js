@@ -116,10 +116,16 @@
 
   // ---------- state / URL ----------
   function readHash() {
+    const ALLOWED = {
+      mode: ['A', 'B'], unit: ['pref', 'muni_city', 'muni_ward'], metric: ['p', 'a', 'd', 'n'],
+      weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc'], bw: ['10', '30', '50'],
+      rankMin: ['0', '50000', '100000', '300000'], showSc: ['0', '1'], popAlpha: ['0', '1'],
+    };
     const p = new URLSearchParams(location.hash.slice(1));
     for (const k of Object.keys(state)) {
       if (!p.has(k)) continue;
       const v = p.get(k);
+      if (!ALLOWED[k].includes(v)) continue;
       state[k] = typeof state[k] === 'boolean' ? v === '1' : v;
     }
   }
@@ -252,8 +258,8 @@
         <table>
           <tr><td>状態</td><td>${status}</td></tr>
           <tr><td>ストール数</td><td>${p.stalls_est ? `${p.stalls}（推定）` : p.stalls}</td></tr>
-          ${p.kw && p.kw !== 'null' ? `<tr><td>最大出力</td><td>${p.kw} kW</td></tr>` : ''}
-          ${p.opened && p.opened !== 'null' ? `<tr><td>開設日</td><td>${p.opened}</td></tr>` : ''}
+          ${p.kw && p.kw !== 'null' ? `<tr><td>最大出力</td><td>${esc(p.kw)} kW</td></tr>` : ''}
+          ${p.opened && p.opened !== 'null' ? `<tr><td>開設日</td><td>${esc(p.opened)}</td></tr>` : ''}
         </table>`).addTo(map);
     });
   }
@@ -315,12 +321,19 @@
   // ---------- Method A ----------
   function quantileBreaks(values, k) {
     const v = values.slice().sort((a, b) => a - b);
+    const min = v[0];
     const br = [];
     for (let i = 1; i < k; i++) {
       const q = v[Math.min(v.length - 1, Math.floor((i / k) * v.length))];
-      if (!br.length || q > br[br.length - 1]) br.push(q);
+      if (q > min && (!br.length || q > br[br.length - 1])) br.push(q);
     }
     return br;
+  }
+
+  function spreadColors(n) {
+    const p = WORST_TO_BEST;
+    if (n <= 1) return [p[Math.floor((p.length - 1) / 2)]];
+    return Array.from({ length: n }, (_, i) => p[Math.round((i * (p.length - 1)) / (n - 1))]);
   }
 
   function renderA() {
@@ -337,8 +350,13 @@
 
     const vals = Object.values(recs).map((r) => r[key]).filter((v) => v != null);
     const hasZeroClass = m.better === 'high';
-    const breaks = quantileBreaks(hasZeroClass ? vals.filter((v) => v > 0) : vals, WORST_TO_BEST.length);
-    const colors = WORST_TO_BEST.slice(0, breaks.length + 1);
+    const classVals = hasZeroClass ? vals.filter((v) => v > 0) : vals;
+    const isCount = state.metric === 'n';
+    let breaks;
+    const distinct = [...new Set(classVals)].sort((a, b) => a - b);
+    if (isCount && distinct.length <= WORST_TO_BEST.length) breaks = distinct.slice(1);
+    else breaks = quantileBreaks(classVals, WORST_TO_BEST.length);
+    const colors = spreadColors(breaks.length + 1);
     const ordered = m.better === 'high' ? colors : colors.slice().reverse();
     const step = ['step', ['get', 'v'], ordered[0]];
     breaks.forEach((b, i) => step.push(b, ordered[i + 1]));
@@ -347,13 +365,17 @@
     expr.push(step);
     map.setPaintProperty('units-fill', 'fill-color', expr);
 
-    const fmtB = (v) => (state.metric === 'n' ? String(Math.round(v)) : v.toFixed(state.metric === 'd' ? 1 : 2));
+    const fmtB = (v) => (isCount ? String(Math.round(v)) : v.toFixed(state.metric === 'd' ? 1 : 2));
     const rows = [];
     if (hasZeroClass) rows.push({ color: ZERO_COLOR, label: '0' });
-    const posVals = vals.filter((v) => v > 0);
-    const edges = [hasZeroClass ? Math.min(...posVals) : Math.min(...vals), ...breaks, Math.max(...vals)];
+    const lo = classVals.length ? Math.min(...classVals) : 0;
+    const hi = classVals.length ? Math.max(...classVals) : 0;
+    const edges = [lo, ...breaks, hi];
     for (let i = 0; i < ordered.length; i++) {
-      rows.push({ color: ordered[i], label: `${fmtB(edges[i])} 〜 ${fmtB(edges[i + 1])}` });
+      const a = edges[i];
+      const last = i === ordered.length - 1;
+      const b = isCount && !last ? edges[i + 1] - 1 : edges[i + 1];
+      rows.push({ color: ordered[i], label: isCount && a === b ? fmtB(a) : `${fmtB(a)} 〜 ${fmtB(b)}` });
     }
     const unitSuffix = state.metric === 'd' ? '（km）' : state.metric === 'n' ? `（${WEIGHT_LABEL[state.weight]}）` : `（${WEIGHT_LABEL[state.weight]}／10万人）`;
     legend(`${m.label}${unitSuffix}　${m.better === 'high' ? '赤ほど少ない' : '赤ほど遠い'}`, rows.map((r) => ({ css: r.color, label: r.label })));
@@ -508,6 +530,8 @@
   function fmtPop(p) { return p >= 1e8 ? `${(p / 1e8).toFixed(2)}億人` : `${nf.format(Math.round(p / 1e4))}万人`; }
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 })();
+
+
 
 
 

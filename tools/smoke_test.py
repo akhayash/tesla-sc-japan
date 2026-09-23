@@ -14,6 +14,8 @@ CASES = {
     "a_pref": "#mode=A&unit=pref&metric=p",
     "a_muni_access": "#mode=A&unit=muni_city&metric=a&rankMin=100000",
     "a_ward_dist": "#mode=A&unit=muni_ward&metric=d&rankMin=100000",
+    "a_muni_count": "#mode=A&unit=muni_ward&metric=n&weight=s",
+    "bad_hash": "#mode=Z&unit=x&bw=20&metric=q",
     "b_ratio": "#mode=B&layer=ratio&bw=30",
     "b_pop": "#mode=B&layer=pop&bw=30",
     "b_sc": "#mode=B&layer=sc&bw=10&status=a&weight=s",
@@ -57,5 +59,6 @@ with sync_playwright() as p:
 
 print("errors:", errors or "none")
 sys.exit(1 if errors else 0)
+
 
 

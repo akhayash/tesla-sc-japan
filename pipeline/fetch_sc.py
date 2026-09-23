@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 
 from common import OUT, WORK, get_json, to_lcc_km
@@ -37,8 +38,8 @@ def main() -> None:
                     "status": status,
                     "group": group,
                     "stalls": int(s.get("stallCount") or 0),
-                    "kw": s.get("powerKilowatt"),
-                    "opened": s.get("dateOpened"),
+                    "kw": int(s["powerKilowatt"]) if str(s.get("powerKilowatt") or "").isdigit() else None,
+                    "opened": s["dateOpened"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(s.get("dateOpened") or "")) else None,
                     "x": round(float(x), 3),
                     "y": round(float(y), 3),
                 },
@@ -62,4 +63,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 

@@ -57,7 +57,7 @@
   };
 
   const state = {
-    mode: 'A', unit: 'pref', metric: 'p', weight: 't', status: 'o',
+    mode: 'B', unit: 'pref', metric: 'p', weight: 't', status: 'o',
     layer: 'ratio', bw: '10', tesla: true, flash: false,
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
     rankMin: '0', base: 'pale',

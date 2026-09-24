@@ -7,7 +7,7 @@
   <meta name="description" content="日本のテスラ スーパーチャージャーとFLASH NACS急速充電器を人口分布と重ね、充電拠点が少ない地域を可視化します。">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=20260924-aerial-viewer">
+  <link rel="stylesheet" href="style.css?v=20260924-hazard-tab">
 </head>
 <body>
   <aside id="panel">
@@ -17,7 +17,6 @@
       <p class="sub">日本の急速充電インフラを人口分布から見る</p>
       <nav class="quick-links" aria-label="関連ページ">
         <a href="village.html">100人の村</a>
-        <a href="hazard.html" target="_blank" rel="noopener">災害リスク</a>
         <a href="about.html">データと算出方法</a>
       </nav>
     </header>
@@ -25,7 +24,33 @@
     <div class="tabs" role="tablist">
       <button role="tab" data-mode="A">行政区別</button>
       <button role="tab" data-mode="B" class="active">1kmメッシュ</button>
+      <button role="tab" data-mode="C">災害リスク</button>
     </div>
+
+    <section class="panel-card hazard-card" id="hazard-card" data-show="C">
+      <div class="card-heading"><h2>重ねる災害情報</h2><span id="hz-badge">複数選択できます</span></div>
+      <div class="hz-body">
+        <div id="hz-options"></div>
+        <div class="ctl">
+          <label>配色</label>
+          <div class="seg" data-hzkey="hzPal">
+            <button data-v="vis" class="active">見やすい配色</button>
+            <button data-v="official">公式配色</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <label for="hz-opacity">濃さ</label>
+          <div class="hz-range"><input type="range" id="hz-opacity" min="20" max="100" step="5" value="70"><span id="hz-opacity-v">70%</span></div>
+        </div>
+        <div id="hz-legend" class="hz-legend"></div>
+        <div id="hz-summary" class="hz-summary"></div>
+        <details class="hz-list-wrap" id="hz-list-wrap" hidden>
+          <summary>想定区域内の充電器（リスク中以上）</summary>
+          <ol id="hz-list"></ol>
+        </details>
+        <p class="field-note">出典：「<a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト</a>」を加工して作成。区域外でも安全とは限りません。<a href="about.html#hazard">判定方法</a></p>
+      </div>
+    </section>
 
     <section class="controls panel-card">
       <div class="card-heading">
@@ -126,6 +151,7 @@
       </div>
     </section>
 
+
     <section class="panel-card result-guide" id="result-guide">
       <div id="legend"></div>
       <details class="method-note">
@@ -194,6 +220,7 @@
   <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.0.38/dist.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
-  <script src="app.js?v=20260924-aerial-viewer"></script>
+  <script src="hazard-overlay.js?v=20260924-hazard-tab"></script>
+  <script src="app.js?v=20260924-hazard-tab"></script>
 </body>
 </html>

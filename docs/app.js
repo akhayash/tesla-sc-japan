@@ -150,7 +150,7 @@
   // ---------- state / URL ----------
   function readHash() {
     const ALLOWED = {
-      mode: ['A', 'B'], unit: ['pref', 'muni_city', 'muni_ward'], metric: ['p', 'a', 'd', 'n'],
+      mode: ['A', 'B', 'C'], unit: ['pref', 'muni_city', 'muni_ward'], metric: ['p', 'a', 'd', 'n'],
       weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc', 'none'], bw: ['10', '30', '50'],
       rankMin: ['0', '50000', '100000', '300000'], showSc: ['0', '1'], popAlpha: ['0', '1'],
       tesla: ['0', '1'], flash: ['0', '1'], expressway: ['0', '1'], roadFacilities: ['0', '1'],
@@ -170,6 +170,7 @@
   function writeHash() {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries(state)) p.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : v);
+    window.HazardOverlay?.writeHash(p);
     history.replaceState(null, '', '#' + p.toString());
   }
 
@@ -394,6 +395,16 @@
     overlay = new deck.MapboxOverlay({ interleaved: true, layers: [] });
     map.addControl(overlay);
     popup = new maplibregl.Popup({ closeButton: true, maxWidth: '300px' });
+    window.HazardOverlay?.init({
+      map, beforeId: 'expressway-casing', ringBeforeId: 'sc-points',
+      getActiveSites: activeSites,
+      openCharger: (id) => {
+        const c = chargerById.get(String(id));
+        if (!c) return;
+        map.flyTo({ center: c.coords, zoom: Math.max(map.getZoom(), 13), duration: 900 });
+        map.once('moveend', () => popup.setLngLat(c.coords).setHTML(chargerPopupHtml(c.props, c.coords)).addTo(map));
+      },
+    });
 
     const tip = $('#tooltip');
     map.on('mousemove', 'units-fill', (e) => {
@@ -478,7 +489,7 @@
       setTimeout(() => map.resize(), 220);
     });
     document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { state.mode = b.dataset.mode; render(); }));
-    document.querySelectorAll('.seg').forEach((seg) => {
+    document.querySelectorAll('.seg[data-key]').forEach((seg) => {
       seg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
         state[seg.dataset.key] = seg.dataset.key === 'layer' && state.layer === b.dataset.v ? 'none' : b.dataset.v;
         if (seg.dataset.key === 'unit') state.rankMin = b.dataset.v === 'pref' ? '0' : '100000';
@@ -526,7 +537,7 @@
 
   function syncUi() {
     document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.mode === state.mode));
-    document.querySelectorAll('.seg').forEach((seg) => {
+    document.querySelectorAll('.seg[data-key]').forEach((seg) => {
       seg.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === state[seg.dataset.key]));
     });
     document.querySelectorAll('[data-show]').forEach((el) => { el.hidden = el.dataset.show !== state.mode; });
@@ -550,7 +561,7 @@
     $('#ctl-pop-alpha').hidden = !meshDensityShown;
     const weightUsed = state.mode === 'A' ? state.metric !== 'd' : meshDensityShown;
     $('#ctl-weight').hidden = !weightUsed;
-    $('#result-guide').hidden = state.mode === 'B' && state.layer === 'none';
+    $('#result-guide').hidden = state.mode === 'C' || (state.mode === 'B' && state.layer === 'none');
     syncPowerKey();
   }
 
@@ -578,7 +589,17 @@
     for (const id of ['road-service-areas', 'road-junctions', 'road-facility-labels']) {
       map.setLayoutProperty(id, 'visibility', state.roadFacilities ? 'visible' : 'none');
     }
-    if (state.mode === 'A') renderA(); else renderB();
+    window.HazardOverlay?.setActive(state.mode === 'C');
+    map.setMaxZoom(state.mode === 'C' ? 17 : 13);
+    if (state.mode === 'A') renderA();
+    else if (state.mode === 'B') renderB();
+    else renderC();
+  }
+
+  // ---------- Hazard tab ----------
+  function renderC() {
+    overlay.setProps({ layers: [] });
+    for (const id of ['units-fill', 'units-line', 'units-hl']) map.setLayoutProperty(id, 'visibility', 'none');
   }
 
   // ---------- Method A ----------
@@ -979,6 +1000,7 @@
       ${linksHtml(chargerLinks(p, coords))}
       <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
       <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
+      ${state.mode === 'C' && window.HazardOverlay ? window.HazardOverlay.popupHtml(p.id) : ''}
     </div>`;
   }
 

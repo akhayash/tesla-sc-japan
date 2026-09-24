@@ -108,7 +108,7 @@ body.panel-collapsed #loading { inset: 0; }
   top: 0;
   z-index: 4;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   margin: 0 -2px 12px;
   padding: 5px;
@@ -627,3 +627,38 @@ footer { padding: 2px 2px 0; }
 }
 
 [hidden] { display: none !important; }
+
+/* ---------- 災害リスク tab ---------- */
+.hz-group { margin-bottom: 10px; }
+.hz-group-title { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: #57606a; margin-bottom: 5px; }
+.hz-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.hz-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 12px; border: 1px solid #d0d7de; border-radius: 999px; background: #fff; color: #1f2328; cursor: pointer; transition: border-color .15s, background .15s; }
+.hz-chip:hover { border-color: #8c959f; }
+.hz-chip .sw { width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(0,0,0,.2); }
+.hz-chip.on { background: #1f2328; border-color: #1f2328; color: #fff; }
+.hz-chip.on .sw { border-color: rgba(255,255,255,.7); }
+.hz-range { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #57606a; }
+.hz-range input { flex: 1; accent-color: #22262b; }
+.hz-legend { display: grid; gap: 8px; margin: 4px 0 10px; }
+.hz-lg-title { font-size: 11px; font-weight: 700; color: #57606a; margin-bottom: 3px; }
+.hz-lg-rows { display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 11px; color: #1f2328; }
+.hz-lg-rows i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.15); }
+.hz-summary { font-size: 13px; line-height: 1.65; border-top: 1px solid #eaeef2; padding-top: 10px; }
+.hz-summary b { font-size: 16px; }
+.hz-stats { display: flex; gap: 12px; margin: 4px 0; }
+.hz-stat { font-size: 12px; font-weight: 600; }
+.hz-stat i, #hz-list .lv, .hz-pop i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 3px solid; margin-right: 5px; vertical-align: -2px; background: #fff; box-sizing: content-box; }
+.hz-list-wrap { margin-top: 8px; font-size: 13px; }
+.hz-list-wrap summary { cursor: pointer; font-weight: 600; font-size: 12px; color: #0969da; }
+#hz-list { list-style: none; padding: 0; margin: 6px 0 0; max-height: 300px; overflow-y: auto; }
+#hz-list li { display: grid; grid-template-columns: 18px 1fr; gap: 1px 6px; padding: 6px 4px; border-radius: 6px; cursor: pointer; }
+#hz-list li:hover { background: #f6f8fa; }
+#hz-list .lv { grid-row: span 2; margin-top: 3px; }
+#hz-list .nm { font-weight: 600; }
+#hz-list .meta { font-size: 11px; color: #57606a; }
+.hz-alone { font-size: 10px; font-weight: 700; color: #9a3412; background: #fff1e5; border-radius: 999px; padding: 0 6px; margin-left: 6px; }
+.hz-pop { margin-top: 8px; border-top: 1px solid #eaeef2; padding-top: 6px; }
+.hz-pop-title { font-size: 11px; font-weight: 700; color: #57606a; margin-bottom: 2px; }
+.hz-pop table td { font-size: 11px; }
+.hz-pop tr:not(.on) td { color: #8c959f; }
+.hz-pop i { width: 6px; height: 6px; border-width: 2px; margin-right: 4px; }

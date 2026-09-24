@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>災害リスクマップ｜NACS急速充電器 × 浸水・土砂災害想定</title>
+  <meta name="description" content="日本のテスラ スーパーチャージャーとFLASH充電器の設置場所を、洪水・高潮・津波・土砂災害の想定区域と重ねて確認できます。">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1C5 5 3 7.5 3 10a5 5 0 0 0 10 0c0-2.5-2-5-5-9z' fill='%230969da'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=20260924-hazard">
+  <style>
+    .hz-group { margin-bottom: 10px; }
+    .hz-group:last-child { margin-bottom: 0; }
+    .hz-group-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; color: #57606a; margin: 0 0 4px; }
+    .hz-option { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #d0d7de; border-radius: 8px; margin-bottom: 4px; cursor: pointer; font-size: 13px; background: #fff; }
+    .hz-option:has(input:checked) { border-color: #0969da; background: #f0f7ff; }
+    .hz-option input { margin: 0; }
+    .hz-option .sw { width: 14px; height: 14px; border-radius: 4px; flex: 0 0 14px; border: 1px solid rgba(0,0,0,.12); }
+    .hz-option small { color: #8c959f; margin-left: auto; font-size: 11px; }
+    .range-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #57606a; }
+    .range-row input { flex: 1; }
+    .hz-legend h3 { font-size: 12px; margin: 10px 0 4px; color: #1f2328; }
+    .hz-legend h3:first-child { margin-top: 0; }
+    .hz-legend .row { display: flex; align-items: center; font-size: 12px; margin: 2px 0; }
+    .hz-legend .sw { width: 20px; height: 11px; margin-right: 8px; border: 1px solid rgba(0,0,0,.12); border-radius: 2px; }
+    .risk-key { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; font-size: 12px; align-items: start; }
+    .risk-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); margin-top: 2px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0 6px; }
+    .stat { border-radius: 8px; padding: 8px 6px; text-align: center; background: #f6f8fa; }
+    .stat b { display: block; font-size: 20px; line-height: 1.2; }
+    .stat span { font-size: 11px; color: #57606a; }
+    .stat.l3 b { color: #b91c1c; } .stat.l2 b { color: #c2410c; } .stat.l1 b { color: #a16207; }
+    .hz-total { font-size: 13px; line-height: 1.6; }
+    .hz-total .big { font-size: 22px; font-weight: 700; color: #b91c1c; }
+    #hz-list { list-style: none; padding: 0; margin: 6px 0 0; font-size: 13px; max-height: 360px; overflow-y: auto; }
+    #hz-list li { padding: 6px; border-radius: 6px; cursor: pointer; display: grid; grid-template-columns: 14px 1fr; gap: 2px 8px; }
+    #hz-list li:hover { background: #f6f8fa; }
+    #hz-list .risk-dot { grid-row: span 2; }
+    #hz-list .nm { font-weight: 600; }
+    #hz-list .meta { font-size: 11px; color: #57606a; }
+    .badge { display: inline-block; font-size: 10px; padding: 0 6px; border-radius: 999px; margin-left: 4px; vertical-align: 1px; font-weight: 600; }
+    .badge.tesla { background: #fde8ea; color: #b4162b; } .badge.flash { background: #ddf4ff; color: #0550ae; }
+    .badge.alone { background: #fff1e5; color: #9a3412; }
+    .list-filter { display: flex; gap: 4px; margin-top: 6px; }
+    .hz-popup table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .hz-popup td { padding: 2px 4px; font-size: 12px; }
+    .hz-popup td:last-child { text-align: right; }
+    .hz-popup tr.off td { color: #8c959f; }
+    .hz-popup .lv { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+  </style>
+</head>
+<body>
+  <aside id="panel">
+    <header class="panel-header">
+      <div class="eyebrow">HAZARD EXPOSURE</div>
+      <h1>災害リスクマップ</h1>
+      <p class="sub">充電拠点の場所を、浸水・土砂災害の想定と重ねて見る</p>
+      <nav class="quick-links" aria-label="関連ページ">
+        <a href="./">充電アクセスマップ</a>
+        <a href="village.html">100人の村</a>
+        <a href="about.html#hazard">データと算出方法</a>
+      </nav>
+    </header>
+
+    <section class="panel-card">
+      <div class="card-heading"><h2>重ねる災害情報</h2><span>複数選択できます</span></div>
+      <div id="hz-options"></div>
+      <div class="ctl" style="margin-top:10px">
+        <label for="hz-opacity">災害情報の濃さ</label>
+        <div class="range-row"><input type="range" id="hz-opacity" min="20" max="100" step="5" value="70"><span id="hz-opacity-v">70%</span></div>
+      </div>
+    </section>
+
+    <section class="panel-card">
+      <div class="card-heading"><h2>充電拠点</h2><span>判定の対象</span></div>
+      <div class="ctl network-control">
+        <div class="network-options">
+          <label class="network-option tesla"><input type="checkbox" id="use-tesla" checked><span class="network-dot"></span><span><strong>Tesla SC</strong><small>Supercharger</small></span></label>
+          <label class="network-option flash"><input type="checkbox" id="use-flash" checked><span class="network-dot"></span><span><strong>FLASH</strong><small>NACS対応</small></span></label>
+        </div>
+      </div>
+      <div class="ctl">
+        <label>対象</label>
+        <div class="seg" data-key="status">
+          <button data-v="o" class="active">営業中</button>
+          <button data-v="a">計画・建設中を含む</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label for="basemap">背景地図</label>
+        <select id="basemap">
+          <option value="pale">淡色地図</option>
+          <option value="std">標準地図</option>
+          <option value="photo">航空写真</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="panel-card">
+      <div class="card-heading"><h2>判定結果</h2><span id="hz-updated"></span></div>
+      <div id="hz-summary" class="hz-total"></div>
+      <div class="risk-key" style="margin-top:10px">
+        <span class="risk-dot" style="background:#b91c1c"></span><span><b>高</b>：浸水3m以上／浸水が1週間以上続く／家屋倒壊等氾濫想定区域／土砂災害特別警戒区域</span>
+        <span class="risk-dot" style="background:#f97316"></span><span><b>中</b>：浸水0.5〜3m／1日〜1週間続く／土砂災害警戒区域／雪崩危険箇所</span>
+        <span class="risk-dot" style="background:#facc15"></span><span><b>低</b>：浸水0.5m未満／1日未満</span>
+        <span class="risk-dot" style="background:#94a3b8"></span><span>選択中の想定区域の外</span>
+      </div>
+    </section>
+
+    <section class="panel-card">
+      <div class="rank-head"><h2>想定区域内の充電拠点</h2></div>
+      <div class="seg list-filter" data-key="minLevel">
+        <button data-v="3">高のみ</button>
+        <button data-v="2" class="active">中以上</button>
+        <button data-v="1">すべて</button>
+      </div>
+      <ol id="hz-list"></ol>
+    </section>
+
+    <section class="panel-card hz-legend" id="hz-legend"></section>
+
+    <footer>
+      <details class="sources" open>
+        <summary>データ出典・注意事項</summary>
+        <div class="source-body">
+          <p>
+            災害情報：<a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener">ハザードマップポータルサイト（国土交通省）</a>「重ねるハザードマップ」<br>
+            充電器：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>、<a href="https://ev-charger.jp/area/" target="_blank" rel="noopener">FLASH公式</a>（取得日 <span id="fetched">-</span>）<br>
+            背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>
+          </p>
+          <p class="muted">想定は「想定し得る最大規模」等の条件によるもので、実際の災害がこの通りになるとは限りません。想定区域外でも安全とは限りません（未指定・未公表の区域があります）。判定は充電拠点の登録位置1点で行っており、立体駐車場の上階などは考慮していません。避難や防災の判断には、各自治体のハザードマップを確認してください。</p>
+          <p><a href="about.html#hazard">判定方法の詳細</a> · <a href="https://github.com/akhayash/tesla-sc-japan" target="_blank" rel="noopener">GitHub</a></p>
+        </div>
+      </details>
+    </footer>
+  </aside>
+
+  <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="true" aria-label="サイドパネルを閉じる"></button>
+  <main id="map"></main>
+  <div id="loading">読み込み中…</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="hazard.js?v=20260924-hazard"></script>
+</body>
+</html>

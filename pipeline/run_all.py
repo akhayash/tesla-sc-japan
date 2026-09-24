@@ -9,6 +9,7 @@ import sys
 from common import OUT, WORK
 
 import build_admin
+import build_hazard
 import build_mesh
 import build_village
 import fetch_inputs
@@ -34,6 +35,7 @@ def main() -> None:
     build_admin.main()
     build_mesh.main()
     build_village.main()
+    build_hazard.main()
     build_topojson()
 
 

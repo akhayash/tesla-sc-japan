@@ -29,6 +29,9 @@
 
 を表示します。1 未満は人口比どおりの配置に比べてSCが少ない地域です。人口密度の平滑化は事前計算、SC密度はブラウザで計算しています。
 
+### 災害リスクマップ（`hazard.html`）
+充電拠点の位置に、国土交通省「重ねるハザードマップ」の災害想定（洪水・浸水継続時間・家屋倒壊等氾濫・内水・高潮・津波・土砂災害・雪崩）を複数選んで重ねられます。各拠点の登録座標でズーム17のタイル画素を公式凡例と照合してリスク（高・中・低）を判定し（`pipeline/build_hazard.py` → `docs/data/sc_hazard.json`）、想定区域内の拠点一覧と「30km以内に代替拠点なし」を表示します。
+
 ## データ出典
 サイト上の「[データと算出方法](https://akhayash.github.io/tesla-sc-japan/about.html)」ページに、出典・時点・利用条件・加工内容を掲載しています。
 
@@ -38,6 +41,7 @@
 - 行政区域：[国土数値情報 行政区域データ](https://nlftp.mlit.go.jp/ksj/)（国土交通省）を加工した [smartnews-smri/japan-topography](https://github.com/smartnews-smri/japan-topography)（2021年1月1日時点）を加工
 - 背景地図：[国土地理院 淡色地図](https://maps.gsi.go.jp/development/ichiran.html)
 - 道路・施設：[国土地理院 最適化ベクトルタイル](https://github.com/gsi-cyberjapan/optimal_bvmap)（試験公開。「高速道路等」は地図表現上の区分）
+- 災害情報：「[ハザードマップポータルサイト](https://disaportal.gsi.go.jp/)」（国土交通省）を加工して作成（公共データ利用規約 第1.0版）
 
 ## データ再生成
 
@@ -58,6 +62,7 @@ cd pipeline
 | `pipeline/run_all.py` | 上記と TopoJSON 生成（`docs/data/boundaries.topojson`）を一括実行 |
 | `pipeline/update_sc.py` | SCの変化を確認し、変化があれば SC と行政区別集計だけを再生成（自動更新で使用） |
 | `pipeline/build_village.py` | 「もし日本が100人の村だったら」ページ用の数値 → `docs/data/village.json`（データ更新のたびに再生成） |
+| `pipeline/build_hazard.py` | 各充電拠点の災害想定を判定 → `docs/data/sc_hazard.json`（新規・移動・90日経過の拠点のみ再判定） |
 
 ローカル確認：
 
@@ -66,6 +71,7 @@ cd pipeline
 cd docs; python -m http.server 8765
 # 別ターミナルで（Microsoft Edge を使用）
 .\.venv\Scripts\python tools\smoke_test.py http://localhost:8765/ screenshots
+.\.venv\Scripts\python tools\smoke_hazard.py http://localhost:8765/ screenshots
 ```
 
 ## 充電器データの自動更新

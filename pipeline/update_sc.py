@@ -57,6 +57,7 @@ def write_output(changed: bool, summary: list[str]) -> None:
 
 def main() -> None:
     import build_admin
+    import build_hazard
     import build_village
     import fetch_inputs
     import fetch_sc
@@ -72,7 +73,8 @@ def main() -> None:
         if previous is not None:
             sc_path.write_bytes(previous)  # keep the committed file (and its date) untouched
         print("No charger changes.")
-        write_output(False, [])
+        hazard_changed = build_hazard.main()  # re-checks sites whose assessment is stale
+        write_output(hazard_changed, ["hazard assessment refreshed"] if hazard_changed else [])
         return
 
     print(f"{len(changes)} site change(s):")
@@ -81,6 +83,7 @@ def main() -> None:
     fetch_inputs.main()
     build_admin.main()
     build_village.main()
+    build_hazard.main()
     write_output(True, changes)
 
 

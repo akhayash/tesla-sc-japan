@@ -913,15 +913,16 @@
   };
   const OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
   const BRAND_STYLE = {
-    'セブン-イレブン': { color: '#e8730c', letter: '7', short: 'セブン' },
-    'ファミリーマート': { color: '#0a8f45', letter: 'F', short: 'ファミマ' },
-    'ローソン': { color: '#1f5fb8', letter: 'L', short: 'ローソン' },
-    'ミニストップ': { color: '#a88400', letter: 'M', short: 'ミニストップ' },
-    'デイリーヤマザキ': { color: '#b91c1c', letter: 'D', short: 'デイリー' },
-    'セイコーマート': { color: '#c2410c', letter: 'S', short: 'セイコーマート' },
-    NewDays: { color: '#0f766e', letter: 'N', short: 'NewDays' },
-    'ポプラ': { color: '#be123c', letter: 'P', short: 'ポプラ' },
+    'セブン-イレブン': { color: '#e8730c', letter: '7', short: 'セブン', logo: 'seven-eleven' },
+    'ファミリーマート': { color: '#0a8f45', letter: 'F', short: 'ファミマ', logo: 'familymart' },
+    'ローソン': { color: '#1f5fb8', letter: 'L', short: 'ローソン', logo: 'lawson' },
+    'ミニストップ': { color: '#a88400', letter: 'M', short: 'ミニストップ', logo: 'ministop' },
+    'デイリーヤマザキ': { color: '#b91c1c', letter: 'D', short: 'デイリー', logo: 'daily-yamazaki' },
+    'セイコーマート': { color: '#c2410c', letter: 'S', short: 'セイコーマート', logo: 'seicomart' },
+    NewDays: { color: '#79a91b', letter: 'N', short: 'NewDays', logo: 'newdays' },
+    'ポプラ': { color: '#be123c', letter: 'P', short: 'ポプラ', logo: 'poplar' },
   };
+  const brandLogoUrl = (s) => `img/brands/${s.logo}.png`;
   const poiItems = [];
   let poiState = 'idle';
 
@@ -959,10 +960,50 @@
     return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
   }
 
+  // Logos are drawn unaltered (original aspect ratio and colours) on a white badge.
+  function drawLogoBadge(img) {
+    const ratio = 2, aspect = img.naturalWidth / img.naturalHeight;
+    let logoH = aspect < 1.6 ? 13 : 9;
+    let logoW = logoH * aspect;
+    if (logoW > 56) { logoW = 56; logoH = logoW / aspect; }
+    const padX = aspect < 1.6 ? 2 : 4, height = 17;
+    const width = Math.max(height, logoW + padX * 2);
+    const canvas = document.createElement('canvas');
+    canvas.width = (width + 4) * ratio;
+    canvas.height = (height + 4) * ratio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(ratio, ratio);
+    ctx.beginPath();
+    ctx.roundRect(2, 2, width, height, 4);
+    ctx.shadowColor = 'rgba(0,0,0,.35)';
+    ctx.shadowBlur = 2;
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(15,23,42,.18)';
+    ctx.stroke();
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 2 + (width - logoW) / 2, 2 + (height - logoH) / 2, logoW, logoH);
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }
+  async function loadBrandLogos() {
+    await Promise.all(Object.values(BRAND_STYLE).map(async (s) => {
+      try {
+        const img = new Image();
+        img.src = brandLogoUrl(s);
+        await img.decode();
+        s.img = img;
+      } catch {
+        s.img = null;
+      }
+    }));
+  }
+
   async function loadPoi() {
     poiState = 'loading';
     try {
-      const d = await fetch('data/poi.json', { cache: 'no-cache' }).then((r) => r.json());
+      const [d] = await Promise.all([fetch('data/poi.json', { cache: 'no-cache' }).then((r) => r.json()), loadBrandLogos()]);
       const features = [];
       const add = (t, lon, lat, n, brand) => {
         const i = poiItems.push({ t, n, coords: [lon, lat], brand }) - 1;
@@ -975,7 +1016,8 @@
       }
       map.addSource('poi', { type: 'geojson', data: { type: 'FeatureCollection', features }, attribution: OSM_ATTR });
       for (const [brand, s] of Object.entries(BRAND_STYLE)) {
-        map.addImage(`poi-convenience-${brand}`, drawPoiIcon('convenience', s.color, s.letter), { pixelRatio: 2 });
+        const icon = s.img ? drawLogoBadge(s.img) : drawPoiIcon('convenience', s.color, s.letter);
+        map.addImage(`poi-convenience-${brand}`, icon, { pixelRatio: 2 });
       }
       const brandMatch = (fallback, pick) => ['match', ['get', 'k'], ...Object.entries(BRAND_STYLE).flatMap(([brand, s]) => [brand, pick(brand, s)]), fallback];
       for (const t of POI_TYPES) {
@@ -1055,7 +1097,7 @@
     key.hidden = !state.poiConvenience;
     if (key.childElementCount) return;
     key.innerHTML = Object.values(BRAND_STYLE).slice(0, 6)
-      .map((s) => `<span><i style="background:${s.color}">${s.letter}</i>${s.short}</span>`).join('') +
+      .map((s) => `<span title="${esc(s.short)}"><img src="${brandLogoUrl(s)}" alt="${esc(s.short)}"></span>`).join('') +
       '<span><i class="other"></i>その他</span>';
   }
 
@@ -1064,6 +1106,7 @@
     const type = POI_TYPES.find((t) => t.type === item.t);
     const style = item.brand && BRAND_STYLE[item.brand];
     return `<div class="charger-popup poi-popup">
+      ${style ? `<img class="poi-logo" src="${brandLogoUrl(style)}" alt="">` : ''}
       <h3>${esc(item.n)}</h3>
       <div class="muted">${type.label}</div>
       ${aerialHtml(`poi:${index}`, item.coords, { color: style?.color || type.color })}

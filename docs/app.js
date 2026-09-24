@@ -99,11 +99,11 @@
   map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
 
   Promise.all([
-    fetch('data/admin_stats.json').then((r) => r.json()),
-    fetch('data/boundaries.topojson').then((r) => r.json()),
-    fetch('data/sc.geojson').then((r) => r.json()),
-    fetch('data/mesh_meta.json').then((r) => r.json()),
-    fetch('data/mesh.bin').then((r) => r.arrayBuffer()),
+    fetch('data/admin_stats.json', { cache: 'no-cache' }).then((r) => r.json()),
+    fetch('data/boundaries.topojson', { cache: 'no-cache' }).then((r) => r.json()),
+    fetch('data/sc.geojson', { cache: 'no-cache' }).then((r) => r.json()),
+    fetch('data/mesh_meta.json', { cache: 'no-cache' }).then((r) => r.json()),
+    fetch('data/mesh.bin', { cache: 'no-cache' }).then((r) => r.arrayBuffer()),
     new Promise((res) => map.on('load', res)),
   ]).then(([s, t, c, mm, buf]) => {
     stats = s; topo = t; sc = c; meshMeta = mm;
@@ -588,7 +588,6 @@
   function fmtPop(p) { return p >= 1e8 ? `${(p / 1e8).toFixed(2)}億人` : `${nf.format(Math.round(p / 1e4))}万人`; }
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 })();
-
 
 
 

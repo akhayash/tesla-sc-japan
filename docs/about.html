@@ -112,7 +112,7 @@
   </p>
 </main>
 <script>
-  fetch('data/sc.geojson').then((r) => r.json()).then((d) => {
+  fetch('data/sc.geojson', { cache: 'no-cache' }).then((r) => r.json()).then((d) => {
     document.getElementById('fetched').textContent = d.fetched;
     document.getElementById('fetched-flash').textContent = d.fetched_flash || '-';
   }).catch(() => {});

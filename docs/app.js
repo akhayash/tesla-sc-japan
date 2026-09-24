@@ -58,7 +58,7 @@
 
   const state = {
     mode: 'A', unit: 'pref', metric: 'p', weight: 't', status: 'o',
-    layer: 'ratio', bw: '30', tesla: true, flash: false,
+    layer: 'ratio', bw: '10', tesla: true, flash: false,
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
     rankMin: '0', base: 'pale',
   };
@@ -66,7 +66,7 @@
 
   const $ = (s) => document.querySelector(s);
   const nf = new Intl.NumberFormat('ja-JP');
-  let stats, topo, sc, meshMeta, mesh, map, overlay, popup;
+  let stats, topo, sc, roadFacilityData, meshMeta, mesh, map, overlay, popup;
   const unitGeo = {};
   const scDensityCache = new Map();
   let bitmap = null;
@@ -112,11 +112,12 @@
     fetch('data/admin_stats.json', { cache: 'no-cache' }).then((r) => r.json()),
     fetch('data/boundaries.topojson', { cache: 'no-cache' }).then((r) => r.json()),
     fetch('data/sc.geojson', { cache: 'no-cache' }).then((r) => r.json()),
+    fetch('data/road_facilities.geojson', { cache: 'no-cache' }).then((r) => r.json()),
     fetch('data/mesh_meta.json', { cache: 'no-cache' }).then((r) => r.json()),
     fetch('data/mesh.bin', { cache: 'no-cache' }).then((r) => r.arrayBuffer()),
     new Promise((res) => map.on('load', res)),
-  ]).then(([s, t, c, mm, buf]) => {
-    stats = s; topo = t; sc = c; meshMeta = mm;
+  ]).then(([s, t, c, rf, mm, buf]) => {
+    stats = s; topo = t; sc = c; roadFacilityData = rf; meshMeta = mm;
     mesh = parseMesh(buf, mm);
     for (const k of ['pref', 'muni_city', 'muni_ward']) {
       unitGeo[k] = topojson.feature(topo, topo.objects[k]);
@@ -258,8 +259,8 @@
       filter: ['any', ['==', ['get', 'vt_rdctg'], '高速自動車国道等'], ['==', ['get', 'vt_motorway'], 1]],
       layout: { visibility: state.expressway ? 'visible' : 'none', 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': 'rgba(255,255,255,.9)',
-        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.5, 8, 3.5, 12, 7],
+        'line-color': 'rgba(255,255,255,.96)',
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 3.2, 8, 5, 12, 8],
       },
     });
     map.addLayer({
@@ -268,19 +269,32 @@
       filter: ['any', ['==', ['get', 'vt_rdctg'], '高速自動車国道等'], ['==', ['get', 'vt_motorway'], 1]],
       layout: { visibility: state.expressway ? 'visible' : 'none', 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#f59e0b',
-        'line-opacity': 0.9,
-        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 8, 2, 12, 4],
+        'line-color': '#0f172a',
+        'line-opacity': 0.95,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.6, 8, 3, 12, 5],
+      },
+    });
+    map.addSource('road-facilities-data', { type: 'geojson', data: roadFacilityData });
+    map.addLayer({
+      id: 'road-service-areas', type: 'circle', source: 'road-facilities-data',
+      minzoom: 4,
+      filter: ['in', ['get', 'code'], ['literal', [2943, 2944]]],
+      layout: { visibility: state.roadFacilities ? 'visible' : 'none' },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2.3, 8, 4, 12, 6],
+        'circle-color': ['match', ['get', 'code'], 2943, '#ea580c', '#f97316'],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 1.2,
       },
     });
     map.addLayer({
-      id: 'road-facilities', type: 'circle', source: 'gsi-vector', 'source-layer': 'Anno',
-      minzoom: 8,
-      filter: ['in', ['get', 'vt_code'], ['literal', [2941, 2942, 2943, 2944, 2945]]],
+      id: 'road-junctions', type: 'circle', source: 'road-facilities-data',
+      minzoom: 6.5,
+      filter: ['in', ['get', 'code'], ['literal', [2941, 2942, 2945]]],
       layout: { visibility: state.roadFacilities ? 'visible' : 'none' },
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 2.5, 12, 5],
-        'circle-color': ['match', ['get', 'vt_code'], 2943, '#ea580c', 2944, '#f97316', '#7c3aed'],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 6.5, 2, 10, 4.5, 12, 6],
+        'circle-color': '#7c3aed',
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 1.2,
       },
@@ -321,7 +335,7 @@
     });
     map.on('click', 'units-fill', (e) => {
       if (state.mode !== 'A') return;
-      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'road-facilities'] }).length) return;
+      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'road-service-areas', 'road-junctions'] }).length) return;
       openUnitPopup(e.features[0].properties.code, e.lngLat);
     });
     map.on('mouseenter', 'sc-points', () => { map.getCanvas().style.cursor = 'pointer'; });
@@ -340,21 +354,21 @@
           ${p.hours && p.hours !== 'null' ? `<tr><td>営業時間</td><td>${esc(p.hours)}</td></tr>` : ''}
         </table>`).addTo(map);
     });
-    map.on('mousemove', 'road-facilities', (e) => {
-      const p = e.features[0].properties;
-      const type = { 2941: 'IC', 2942: 'JCT', 2943: 'SA', 2944: 'PA', 2945: 'スマートIC' }[p.vt_code] || '道路施設';
-      map.getCanvas().style.cursor = 'pointer';
-      showTip(e.originalEvent, `<b>${esc(p.vt_text || type)}</b><br>${type}`);
-    });
-    map.on('mouseleave', 'road-facilities', () => {
-      map.getCanvas().style.cursor = '';
-      $('#tooltip').hidden = true;
-    });
-    map.on('click', 'road-facilities', (e) => {
-      const p = e.features[0].properties;
-      const type = { 2941: 'IC', 2942: 'JCT', 2943: 'SA', 2944: 'PA', 2945: 'スマートIC' }[p.vt_code] || '道路施設';
-      popup.setLngLat(e.lngLat).setHTML(`<h3>${esc(p.vt_text || type)}</h3><div>${type}</div>`).addTo(map);
-    });
+    for (const id of ['road-service-areas', 'road-junctions']) {
+      map.on('mousemove', id, (e) => {
+        const p = e.features[0].properties;
+        map.getCanvas().style.cursor = 'pointer';
+        showTip(e.originalEvent, `<b>${esc(p.name || p.type)}</b><br>${esc(p.type)}`);
+      });
+      map.on('mouseleave', id, () => {
+        map.getCanvas().style.cursor = '';
+        $('#tooltip').hidden = true;
+      });
+      map.on('click', id, (e) => {
+        const p = e.features[0].properties;
+        popup.setLngLat(e.lngLat).setHTML(`<h3>${esc(p.name || p.type)}</h3><div>${esc(p.type)}</div>`).addTo(map);
+      });
+    }
   }
 
   function showTip(ev, html) {
@@ -439,7 +453,9 @@
     for (const id of ['expressway-casing', 'expressway-line']) {
       map.setLayoutProperty(id, 'visibility', state.expressway ? 'visible' : 'none');
     }
-    map.setLayoutProperty('road-facilities', 'visibility', state.roadFacilities ? 'visible' : 'none');
+    for (const id of ['road-service-areas', 'road-junctions']) {
+      map.setLayoutProperty(id, 'visibility', state.roadFacilities ? 'visible' : 'none');
+    }
     if (state.mode === 'A') renderA(); else renderB();
   }
 

@@ -1,7 +1,7 @@
 """Refresh Supercharger data and rebuild the admin-level stats only when sites changed.
 
 Population, boundaries and the mesh population grid are unchanged between censuses,
-so only docs/data/sc.geojson and docs/data/admin_stats.json are regenerated. The 1km mesh
+so only docs/data/sc.geojson, admin_stats.json and village.json are regenerated. The 1km mesh
 view computes SC density in the browser and needs no rebuild.
 
 Usage: python update_sc.py [--force]
@@ -50,6 +50,7 @@ def write_output(changed: bool, summary: list[str]) -> None:
 
 def main() -> None:
     import build_admin
+    import build_village
     import fetch_inputs
     import fetch_sc
 
@@ -72,8 +73,10 @@ def main() -> None:
         print("  " + line)
     fetch_inputs.main()
     build_admin.main()
+    build_village.main()
     write_output(True, changes)
 
 
 if __name__ == "__main__":
     main()
+

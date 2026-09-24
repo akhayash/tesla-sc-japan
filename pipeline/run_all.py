@@ -10,6 +10,7 @@ from common import OUT, WORK
 
 import build_admin
 import build_mesh
+import build_village
 import fetch_inputs
 import fetch_sc
 
@@ -32,8 +33,10 @@ def main() -> None:
     fetch_inputs.main()
     build_admin.main()
     build_mesh.main()
+    build_village.main()
     build_topojson()
 
 
 if __name__ == "__main__":
     main()
+

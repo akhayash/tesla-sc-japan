@@ -1,0 +1,127 @@
+{
+ "as_of": "2026-09-24",
+ "sites": 155,
+ "stalls": 764,
+ "people_per_stall": 165000,
+ "metros": {
+  "people": 31,
+  "chargers": 44
+ },
+ "regions": [
+  {
+   "name": "北海道",
+   "people": 4,
+   "chargers": 2,
+   "ratio": 0.51
+  },
+  {
+   "name": "東北",
+   "people": 7,
+   "chargers": 4,
+   "ratio": 0.63
+  },
+  {
+   "name": "関東",
+   "people": 35,
+   "chargers": 43,
+   "ratio": 1.25
+  },
+  {
+   "name": "中部",
+   "people": 17,
+   "chargers": 20,
+   "ratio": 1.22
+  },
+  {
+   "name": "近畿",
+   "people": 18,
+   "chargers": 17,
+   "ratio": 0.98
+  },
+  {
+   "name": "中国",
+   "people": 6,
+   "chargers": 4,
+   "ratio": 0.64
+  },
+  {
+   "name": "四国",
+   "people": 3,
+   "chargers": 3,
+   "ratio": 0.89
+  },
+  {
+   "name": "九州・沖縄",
+   "people": 11,
+   "chargers": 6,
+   "ratio": 0.56
+  }
+ ],
+ "bands": [
+  {
+   "from_km": 0,
+   "to_km": 10,
+   "people": 60
+  },
+  {
+   "from_km": 10,
+   "to_km": 30,
+   "people": 24
+  },
+  {
+   "from_km": 30,
+   "to_km": 50,
+   "people": 8
+  },
+  {
+   "from_km": 50,
+   "to_km": null,
+   "people": 8
+  }
+ ],
+ "zero_prefs": {
+  "names": [
+   "島根県",
+   "佐賀県",
+   "長崎県"
+  ],
+  "people": 2
+ },
+ "isolated_cities": {
+  "names": [
+   "姫路市",
+   "福山市",
+   "長崎市",
+   "いわき市",
+   "旭川市",
+   "長岡市",
+   "佐世保市",
+   "八戸市",
+   "松江市"
+  ],
+  "min_pop": 200000,
+  "people": 2
+ },
+ "low_ratio": {
+  "people": 13,
+  "examples": [
+   "札幌市",
+   "熊本市",
+   "福山市"
+  ]
+ },
+ "planned": {
+  "within30_now": 84,
+  "within30_all": 86,
+  "planned_sites": 17,
+  "still_isolated": [
+   "姫路市",
+   "福山市",
+   "長崎市",
+   "いわき市",
+   "長岡市",
+   "佐世保市",
+   "八戸市"
+  ]
+ }
+}

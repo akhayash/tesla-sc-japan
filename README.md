@@ -50,6 +50,7 @@ cd pipeline
 | `pipeline/build_mesh.py` | 手法Bの人口平滑化 → `docs/data/mesh.bin`, `mesh_meta.json` |
 | `pipeline/run_all.py` | 上記と TopoJSON 生成（`docs/data/boundaries.topojson`）を一括実行 |
 | `pipeline/update_sc.py` | SCの変化を確認し、変化があれば SC と行政区別集計だけを再生成（自動更新で使用） |
+| `pipeline/build_village.py` | 「もし日本が100人の村だったら」ページ用の数値 → `docs/data/village.json`（データ更新のたびに再生成） |
 
 ローカル確認：
 

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>もし日本が100人の村だったら｜スーパーチャージャー充足度マップ</title>
+  <meta name="description" content="日本のテスラ スーパーチャージャーの配置を「100人の村」に置き換えて紹介します。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23e31937'/%3E%3C/svg%3E">
+  <style>
+    body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif; color: #1f2328; margin: 0; background: #fafaf7; }
+    main { max-width: 680px; margin: 0 auto; padding: 24px 20px 56px; }
+    .back { font-size: 13px; }
+    a { color: #0969da; }
+    h1 { font-size: 24px; margin: 12px 0 4px; }
+    .lead { color: #57606a; font-size: 14px; margin: 0 0 28px; }
+    .verse { font-size: 17px; line-height: 2; margin: 0 0 22px; }
+    .verse b { color: #cf222e; font-size: 22px; font-variant-numeric: tabular-nums; }
+    .verse .place { color: #1f2328; font-weight: 600; }
+    .dots { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; margin: 8px 0 10px; max-width: 360px; }
+    .dots i { display: block; aspect-ratio: 1; border-radius: 50%; background: #d0d7de; }
+    .dots i.on { background: #cf222e; }
+    .note { font-size: 12px; color: #57606a; line-height: 1.7; border-top: 1px solid #d0d7de; padding-top: 12px; margin-top: 36px; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="back"><a href="./">← 地図に戻る</a></p>
+  <h1>もし日本が100人の村だったら</h1>
+  <p class="lead">スーパーチャージャー編 ― <span id="as-of">-</span> 時点のデータから自動で作成しています</p>
+  <div id="verses">読み込み中…</div>
+  <p class="note" id="note"></p>
+</main>
+<script>
+(() => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nf = new Intl.NumberFormat('ja-JP');
+  const join = (a) => a.map(esc).join('、');
+  const dots = (n) => `<div class="dots" aria-hidden="true">${Array.from({ length: 100 }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
+  const people = (n) => (n >= 1 ? `<b>${n}人</b>` : '<b>1人未満</b>');
+
+  fetch('data/village.json').then((r) => r.json()).then((v) => {
+    document.getElementById('as-of').textContent = v.as_of;
+    const reg = Object.fromEntries(v.regions.map((r) => [r.name, r]));
+    const scarce = v.regions.filter((r) => r.ratio < 0.8).sort((a, b) => a.ratio - b.ratio);
+    const [b10, b30, b50, bFar] = v.bands;
+    const out = [];
+
+    out.push(`<p class="verse">もし日本が100人の村だったら、<br>
+      ${people(v.metros.people)}は東京・神奈川・愛知・大阪に住んでいます。<br>
+      村に充電器が100基あるとすると、そのうち <b>${v.metros.chargers}基</b> がこの人たちのそばにあります。</p>`);
+
+    const lines = [`${people(reg['関東'].people)}は関東に住んでいて、充電器を <b>${reg['関東'].chargers}基</b> 使えます。`];
+    for (const r of scarce.slice(0, 3)) {
+      lines.push(`${people(r.people)}は<span class="place">${esc(r.name)}</span>に住んでいますが、充電器は <b>${r.chargers}基</b> しかありません。`);
+    }
+    out.push(`<p class="verse">${lines.join('<br>')}</p>`);
+
+    out.push(`<p class="verse">
+      ${people(b10.people)}は、10km以内に充電器があります。${dots(b10.people)}
+      ${people(b30.people)}は、少し遠くても30km以内に充電器があります。<br>
+      ${people(b50.people)}は、30〜50km走らないと充電器にたどり着けません。<br>
+      ${people(bFar.people)}は、50km以上走らないと充電器がありません。</p>`);
+
+    if (v.zero_prefs.names.length) {
+      out.push(`<p class="verse">${people(v.zero_prefs.people)}は、<span class="place">${join(v.zero_prefs.names)}</span>に住んでいます。<br>
+        ここにはまだ、営業中の充電器が一つもありません。</p>`);
+    } else {
+      out.push('<p class="verse">いまでは、すべての都道府県に充電器があります。</p>');
+    }
+
+    if (v.isolated_cities.names.length) {
+      out.push(`<p class="verse">${people(v.isolated_cities.people)}は、<span class="place">${join(v.isolated_cities.names)}</span>という
+        人口${nf.format(v.isolated_cities.min_pop / 10000)}万人以上の街に住んでいます。<br>
+        でも、30km以内に充電器はありません。</p>`);
+    } else {
+      out.push(`<p class="verse">人口${nf.format(v.isolated_cities.min_pop / 10000)}万人以上の街なら、どこに住んでいても30km以内に充電器があります。</p>`);
+    }
+
+    out.push(`<p class="verse">${people(v.low_ratio.people)}は、「人口のわりに充電器が半分もない」地域に住んでいます。
+      ${v.low_ratio.examples.length ? `<br><span class="place">${join(v.low_ratio.examples)}</span>の人たちもそうです。` : ''}</p>`);
+
+    if (v.planned.planned_sites) {
+      const still = v.planned.still_isolated;
+      out.push(`<p class="verse">計画中や候補の充電器（${v.planned.planned_sites}か所）が全部できると、<br>
+        30km以内に充電器がある人は ${v.planned.within30_now}人 から <b>${v.planned.within30_all}人</b> に増えます。
+        ${still.length ? `<br>それでも<span class="place">${join(still)}</span>には、まだ計画が届いていません。` : ''}</p>`);
+    }
+
+    out.push(`<p class="verse">実際の日本では、充電器（ストール）1基を<br>約 <b>${nf.format(v.people_per_stall / 10000)}万人</b> で分け合っています。</p>`);
+
+    document.getElementById('verses').innerHTML = out.join('');
+    document.getElementById('note').innerHTML = `数字は令和2年国勢調査の人口と、営業中のスーパーチャージャー ${v.sites}サイト・${nf.format(v.stalls)}ストール（${esc(v.as_of)}時点、supercharge.info）から計算し、100人あたりに四捨五入しています（距離の区分は合計が100人になるよう調整）。距離は住まい（1kmメッシュ）から最寄りの充電器までの直線距離です。「充電器が半分もない」は充足率（平滑化の幅30km）0.5未満の地域です。高速道路を走る人など、住民以外の需要は含みません。詳しくは<a href="about.html">データ出典と算出方法</a>をご覧ください。`;
+  }).catch(() => { document.getElementById('verses').textContent = 'データの読み込みに失敗しました。'; });
+})();
+</script>
+</body>
+</html>
+

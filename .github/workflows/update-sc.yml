@@ -52,7 +52,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data/sc.geojson docs/data/admin_stats.json
+          git add docs/data/sc.geojson docs/data/admin_stats.json docs/data/village.json
           if git diff --cached --quiet; then
             echo "Nothing to commit."
             exit 0
@@ -61,3 +61,4 @@ jobs:
           git commit -F /tmp/msg.txt
           git push
           gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" || true
+

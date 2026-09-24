@@ -62,12 +62,18 @@
     { key: 'facilityPa', code: 2944 },
     { key: 'facilitySmart', code: 2945 },
   ];
+  const POI_TYPES = [
+    { key: 'poiConvenience', type: 'convenience', label: 'コンビニ', color: '#475569', minzoom: 10.5, iconzoom: 12.5 },
+    { key: 'poiMichinoeki', type: 'michinoeki', label: '道の駅', color: '#9a5b13', minzoom: 4, iconzoom: 7.5 },
+    { key: 'poiMall', type: 'mall', label: 'ショッピングモール', color: '#a21caf', minzoom: 7, iconzoom: 10 },
+  ];
 
   const state = {
     mode: 'B', unit: 'pref', metric: 'p', weight: 't', status: 'o',
     layer: 'ratio', bw: '10', tesla: true, flash: false,
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
     facilityIc: true, facilityJct: true, facilitySmart: true, facilitySa: true, facilityPa: true,
+    poiConvenience: false, poiMichinoeki: false, poiMall: false,
     rankMin: '0', base: 'pale',
   };
   readHash();
@@ -166,6 +172,7 @@
       tesla: ['0', '1'], flash: ['0', '1'], expressway: ['0', '1'], roadFacilities: ['0', '1'],
       facilityIc: ['0', '1'], facilityJct: ['0', '1'], facilitySmart: ['0', '1'],
       facilitySa: ['0', '1'], facilityPa: ['0', '1'],
+      poiConvenience: ['0', '1'], poiMichinoeki: ['0', '1'], poiMall: ['0', '1'],
       base: ['pale', 'std', 'photo', 'blank'],
     };
     const p = new URLSearchParams(location.hash.slice(1));
@@ -433,7 +440,7 @@
     });
     map.on('click', 'units-fill', (e) => {
       if (state.mode !== 'A') return;
-      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'sc-icons', 'road-service-areas', 'road-junctions'] }).length) return;
+      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'sc-icons', 'road-service-areas', 'road-junctions', ...POI_TYPES.flatMap((t) => [`poi-${t.type}`, `poi-${t.type}-dot`])].filter((id) => map.getLayer(id)) }).length) return;
       openUnitPopup(e.features[0].properties.code, e.lngLat);
     });
     for (const id of ['sc-points', 'sc-icons']) {
@@ -526,6 +533,12 @@
         render();
       });
     });
+    document.querySelectorAll('[data-poi]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state[button.dataset.poi] = !state[button.dataset.poi];
+        render();
+      });
+    });
     for (const key of ['tesla', 'flash']) {
       $(`#use-${key}`).addEventListener('change', (e) => {
         state[key] = e.target.checked;
@@ -559,6 +572,11 @@
     $('#show-road-facilities').checked = state.roadFacilities;
     document.querySelectorAll('[data-facility]').forEach((button) => {
       const enabled = state[button.dataset.facility];
+      button.classList.toggle('off', !enabled);
+      button.setAttribute('aria-pressed', String(enabled));
+    });
+    document.querySelectorAll('[data-poi]').forEach((button) => {
+      const enabled = state[button.dataset.poi];
       button.classList.toggle('off', !enabled);
       button.setAttribute('aria-pressed', String(enabled));
     });
@@ -599,6 +617,7 @@
     for (const id of ['road-service-areas', 'road-junctions', 'road-facility-labels']) {
       map.setLayoutProperty(id, 'visibility', state.roadFacilities ? 'visible' : 'none');
     }
+    renderPoi();
     window.HazardOverlay?.setActive(state.mode === 'C');
     map.setMaxZoom(state.mode === 'C' ? 17 : 13);
     if (state.mode === 'A') renderA();
@@ -887,6 +906,131 @@
       }
     }
   }
+  const POI_GLYPH = {
+    convenience: 'M4 4h16l1.6 5.2a2.6 2.6 0 0 1-5.2.3 2.6 2.6 0 0 1-4.8 0 2.6 2.6 0 0 1-4.8 0 2.6 2.6 0 0 1-5.2-.3zM5 13.2h14V20H5z',
+    mall: 'M5.5 8h13l1 12.5h-15zM8.7 8V6.6a3.3 3.3 0 0 1 6.6 0V8h-1.8V6.6a1.5 1.5 0 0 0-3 0V8z',
+  };
+  const OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+  let poiState = 'idle';
+
+  function drawPoiIcon(type, color) {
+    const ratio = 2, size = 17;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = (size + 4) * ratio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(ratio, ratio);
+    ctx.beginPath();
+    ctx.roundRect(2, 2, size, size, 4);
+    ctx.shadowColor = 'rgba(0,0,0,.3)';
+    ctx.shadowBlur = 2;
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    if (POI_GLYPH[type]) {
+      ctx.save();
+      ctx.translate(4, 4);
+      ctx.scale(13 / 24, 13 / 24);
+      ctx.fill(new Path2D(POI_GLYPH[type]), 'evenodd');
+      ctx.restore();
+    } else {
+      ctx.font = 'bold 10.5px "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('駅', 2 + size / 2, 2 + size / 2 + 0.5);
+    }
+    return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  }
+
+  async function loadPoi() {
+    poiState = 'loading';
+    try {
+      const d = await fetch('data/poi.json', { cache: 'no-cache' }).then((r) => r.json());
+      const features = [];
+      for (const [lon, lat, b] of d.convenience) {
+        features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { t: 'convenience', n: b >= 0 ? d.brands[b] : 'コンビニ' } });
+      }
+      for (const type of ['michinoeki', 'mall']) {
+        for (const [lon, lat, name] of d[type]) {
+          features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { t: type, n: name } });
+        }
+      }
+      map.addSource('poi', { type: 'geojson', data: { type: 'FeatureCollection', features }, attribution: OSM_ATTR });
+      for (const t of POI_TYPES) {
+        map.addImage(`poi-${t.type}`, drawPoiIcon(t.type, t.color), { pixelRatio: 2 });
+        const dense = t.type === 'convenience';
+        map.addLayer({
+          id: `poi-${t.type}-dot`, type: 'circle', source: 'poi', minzoom: t.minzoom, maxzoom: t.iconzoom,
+          filter: ['==', ['get', 't'], t.type],
+          layout: { visibility: 'none' },
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], t.minzoom, dense ? 1.8 : 2.2, t.iconzoom, dense ? 3 : 3.6],
+            'circle-color': t.color,
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 0.8,
+          },
+        }, 'road-service-areas');
+        map.addLayer({
+          id: `poi-${t.type}`, type: 'symbol', source: 'poi', minzoom: t.iconzoom,
+          filter: ['==', ['get', 't'], t.type],
+          layout: {
+            visibility: 'none',
+            'icon-image': `poi-${t.type}`,
+            'icon-size': ['interpolate', ['linear'], ['zoom'], t.iconzoom, 0.8, 13, 1],
+            'icon-allow-overlap': !dense,
+            'icon-padding': 1,
+          },
+        }, 'road-service-areas');
+        for (const id of [`poi-${t.type}-dot`, `poi-${t.type}`]) {
+          map.on('mousemove', id, (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+            showTip(e.originalEvent, `<b>${esc(e.features[0].properties.n)}</b><br>${t.label}`);
+          });
+          map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; $('#tooltip').hidden = true; });
+          map.on('click', id, (e) => {
+            const p = e.features[0].properties;
+            popup.setLngLat(e.features[0].geometry.coordinates).setHTML(
+              `<h3>${esc(p.n)}</h3><div class="muted">${t.label}</div><div class="muted poi-source">出典：${OSM_ATTR}</div>`).addTo(map);
+          });
+        }
+      }
+      map.addLayer({
+        id: 'poi-labels', type: 'symbol', source: 'poi', minzoom: 10,
+        filter: ['in', ['get', 't'], ['literal', []]],
+        layout: {
+          'text-field': ['get', 'n'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 10.5,
+          'text-offset': [0, 1.1],
+          'text-anchor': 'top',
+          'text-optional': true,
+          'text-padding': 4,
+        },
+        paint: { 'text-color': '#3f3f46', 'text-halo-color': 'rgba(255,255,255,.95)', 'text-halo-width': 1.8 },
+      }, 'road-service-areas');
+      poiState = 'ready';
+      renderPoi();
+    } catch (err) {
+      poiState = 'idle';
+      console.error(err);
+    }
+  }
+
+  function renderPoi() {
+    const enabled = POI_TYPES.filter((t) => state[t.key]);
+    if (poiState !== 'ready') {
+      if (enabled.length && poiState === 'idle') loadPoi();
+      return;
+    }
+    for (const t of POI_TYPES) {
+      for (const id of [`poi-${t.type}-dot`, `poi-${t.type}`]) map.setLayoutProperty(id, 'visibility', state[t.key] ? 'visible' : 'none');
+    }
+    map.setFilter('poi-labels', ['in', ['get', 't'], ['literal', enabled.map((t) => t.type).filter((type) => type !== 'convenience')]]);
+  }
+
   function syncPowerKey() {
     const network = state.tesla ? 'tesla' : 'flash';
     if ($('#power-key').dataset.network === network) return;

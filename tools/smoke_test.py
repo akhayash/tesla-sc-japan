@@ -69,10 +69,17 @@ with sync_playwright() as p:
             page.click('[data-facility="facilitySa"]')
             if page.get_attribute('[data-facility="facilitySa"]', "aria-pressed") != "true":
                 errors.append("SA legend toggle did not restore state")
-            if "充電器名" not in page.inner_text(".transport-key + .field-note"):
+            if "名称" not in page.inner_text(".key-row + .field-note"):
                 errors.append("zoom label guidance is missing")
             if page.locator("#power-key img").count() != 3:
                 errors.append("charger power tier legend is missing")
+            if page.locator('[data-poi][aria-pressed="true"]').count():
+                errors.append("POI layers should be off by default")
+            page.click('[data-poi="poiMichinoeki"]')
+            page.wait_for_timeout(2500)
+            if page.get_attribute('[data-poi="poiMichinoeki"]', "aria-pressed") != "true" or "poiMichinoeki=1" not in page.url:
+                errors.append("michi-no-eki toggle did not update state")
+            page.click('[data-poi="poiMichinoeki"]')
         if name == "a_flash_only" and (page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
             errors.append("FLASH-only state was not restored from URL")
         if name == "a_both" and (not page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):

@@ -18,6 +18,8 @@
 
 国土地理院の最適化ベクトルタイルから、高速道路等とIC・JCT・スマートIC・SA・PAを重ねて表示できます。交通レイヤは個別にON/OFFでき、施設の凡例をクリックすると種類ごとに表示を切り替えられます。SA/PAは全国表示、IC類は地域表示から描画し、拡大すると施設名と充電器名を地図上に表示します。
 
+周辺施設として、OpenStreetMapのコンビニ・道の駅・ショッピングモールを種類ごとに重ねられます（初期状態はOFF）。引いた表示では小さな点、拡大すると種類別のアイコンで描画し、コンビニは市街地レベルから表示します。
+
 充電器の点を選択すると、国土地理院の航空写真（押すと全画面に近いビューアーで拡大・移動可能）とストリートビュー／Googleマップへのリンク、最大出力（雷アイコン3段階：200kW以上／100〜199kW／100kW未満）、ストール数、充電器世代（V2/V3/V4/Urban）、コネクター、車いす対応・トレーラー可の区画数、営業時間などのスペックを表示します。地図を拡大すると充電器の点が雷マーク入りのバッジに切り替わり、雷の数で出力の段階を示します（全国表示では点の大きさで区別）。1kmメッシュの表示ボタンは選択中のものを再度押すとOFFになり、充電器と交通レイヤだけを表示できます。サイドパネルは折りたためます。
 
 ### 1kmメッシュ（手法B）
@@ -41,6 +43,7 @@
 - 行政区域：[国土数値情報 行政区域データ](https://nlftp.mlit.go.jp/ksj/)（国土交通省）を加工した [smartnews-smri/japan-topography](https://github.com/smartnews-smri/japan-topography)（2021年1月1日時点）を加工
 - 背景地図：[国土地理院 淡色地図](https://maps.gsi.go.jp/development/ichiran.html)
 - 道路・施設：[国土地理院 最適化ベクトルタイル](https://github.com/gsi-cyberjapan/optimal_bvmap)（試験公開。「高速道路等」は地図表現上の区分）
+- 周辺施設：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors（ODbL 1.0）。コンビニ・モールは施設種別タグ、道の駅は登録名称「道の駅」で抽出
 - 災害情報：「[ハザードマップポータルサイト](https://disaportal.gsi.go.jp/)」（国土交通省）を加工して作成（公共データ利用規約 第1.0版）
 
 ## データ再生成
@@ -56,6 +59,7 @@ cd pipeline
 |---|---|
 | `pipeline/fetch_sc.py` | supercharge.info から日本のSCを取得 → `docs/data/sc.geojson` |
 | `pipeline/fetch_flash.py` | FLASH公式一覧からNACS対応拠点を取得し、住所を座標化 |
+| `pipeline/fetch_poi.py` | OpenStreetMap（Overpass API）からコンビニ・道の駅・モールを取得 → `docs/data/poi.json`（手動実行。`--cached` で前回の取得結果を再利用） |
 | `pipeline/fetch_inputs.py` | 境界・市区町村人口・1kmメッシュ人口を取得 |
 | `pipeline/build_admin.py` | 手法Aの集計 → `docs/data/admin_stats.json` |
 | `pipeline/build_mesh.py` | 手法Bの人口平滑化 → `docs/data/mesh.bin`, `mesh_meta.json` |

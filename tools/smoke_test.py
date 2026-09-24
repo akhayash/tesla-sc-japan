@@ -40,7 +40,7 @@ with sync_playwright() as p:
         info = page.evaluate("() => ({legend: document.querySelector('#legend').innerText.slice(0,120), rank: document.querySelector('#rank-list').innerText.slice(0,200), summary: document.querySelector('#summary').innerText})")
         print(name, info)
         if name == "a_pref":
-            page.click("#use-tesla")
+            page.click(".network-option.tesla")
             if not page.is_checked("#use-tesla"):
                 errors.append("both charger networks could be disabled")
         if name == "a_flash_only" and (page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
@@ -71,4 +71,3 @@ with sync_playwright() as p:
 
 print("errors:", errors or "none")
 sys.exit(1 if errors else 0)
-

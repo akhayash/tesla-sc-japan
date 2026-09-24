@@ -7,13 +7,18 @@
   <meta name="description" content="日本のテスラ スーパーチャージャーとFLASH NACS急速充電器を人口分布と重ね、充電拠点が少ない地域を可視化します。">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23e31937'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260924-ui">
 </head>
 <body>
   <aside id="panel">
-    <header>
-      <h1>NACS急速充電器 充足度マップ</h1>
-      <p class="sub">テスラSC・FLASHと人口分布<br><a href="village.html">もし日本が100人の村だったら（SC）</a>　｜　<a href="about.html">データ出典と算出方法</a></p>
+    <header class="panel-header">
+      <div class="eyebrow">NACS CHARGING ACCESS</div>
+      <h1>充電アクセスマップ</h1>
+      <p class="sub">日本の急速充電インフラを人口分布から見る</p>
+      <nav class="quick-links" aria-label="関連ページ">
+        <a href="village.html">100人の村</a>
+        <a href="about.html">データと算出方法</a>
+      </nav>
     </header>
 
     <div class="tabs" role="tablist">
@@ -21,7 +26,11 @@
       <button role="tab" data-mode="B">1kmメッシュ</button>
     </div>
 
-    <section class="controls">
+    <section class="controls panel-card">
+      <div class="card-heading">
+        <h2>表示条件</h2>
+        <span>選択内容を地図に反映</span>
+      </div>
       <div class="ctl" data-show="A">
         <label>集計単位</label>
         <div class="seg" data-key="unit">
@@ -62,11 +71,20 @@
           <button data-v="s">サイト数</button>
         </div>
       </div>
-      <div class="ctl checks">
-        <label>充電網</label>
-        <label><input type="checkbox" id="use-tesla" checked> テスラ SC</label>
-        <label><input type="checkbox" id="use-flash"> FLASH（NACS）</label>
-        <div class="muted">● SC（赤）　● FLASH（青）</div>
+      <div class="ctl network-control">
+        <label>充電ネットワーク</label>
+        <div class="network-options">
+          <label class="network-option tesla">
+            <input type="checkbox" id="use-tesla" checked>
+            <span class="network-dot"></span>
+            <span><strong>Tesla SC</strong><small>Supercharger</small></span>
+          </label>
+          <label class="network-option flash">
+            <input type="checkbox" id="use-flash">
+            <span class="network-dot"></span>
+            <span><strong>FLASH</strong><small>NACS対応</small></span>
+          </label>
+        </div>
       </div>
       <div class="ctl">
         <label>対象</label>
@@ -75,9 +93,9 @@
           <button data-v="a">計画・建設中を含む</button>
         </div>
       </div>
-      <div class="ctl checks">
-        <label><input type="checkbox" id="show-sc" checked> 充電器の位置を表示</label>
-        <label data-show="B"><input type="checkbox" id="pop-alpha" checked> 人口の少ないメッシュを薄く表示</label>
+      <div class="ctl display-options">
+        <label class="check-row"><input type="checkbox" id="show-sc" checked><span>充電器の位置を表示</span></label>
+        <label class="check-row" data-show="B"><input type="checkbox" id="pop-alpha" checked><span>低人口メッシュを薄く表示</span></label>
       </div>
       <div class="ctl">
         <label for="basemap">背景地図</label>
@@ -90,10 +108,15 @@
       </div>
     </section>
 
-    <section id="legend"></section>
-    <p id="metric-note" class="note"></p>
+    <section class="panel-card result-guide">
+      <div id="legend"></div>
+      <details class="method-note">
+        <summary>この指標について</summary>
+        <p id="metric-note" class="note"></p>
+      </details>
+    </section>
 
-    <section id="ranking" data-show="A">
+    <section id="ranking" class="panel-card" data-show="A">
       <div class="rank-head">
         <h2 id="rank-title">不足している地域</h2>
         <select id="rank-min" aria-label="人口で絞り込み">
@@ -106,18 +129,24 @@
       <ol id="rank-list"></ol>
     </section>
 
-    <section id="summary" data-show="B"></section>
+    <section id="summary" class="panel-card" data-show="B"></section>
 
     <footer>
-      <h2 class="src-title">データ出典</h2>
-      <p>
-        SC位置：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>、FLASH位置：<a href="https://ev-charger.jp/area/" target="_blank" rel="noopener">FLASH公式 設置場所一覧</a> のデータを加工（取得日 <span id="fetched">-</span>）<br>
-        人口：出典 <a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">政府統計の総合窓口（e-Stat）</a>「令和2年国勢調査」（市区町村別の主な結果・地域メッシュ統計）を加工して作成<br>
-        境界：「<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報（行政区域データ）</a>」（国土交通省）を加工して作成（<a href="https://github.com/smartnews-smri/japan-topography" target="_blank" rel="noopener">スマートニュース メディア研究所 簡略化版</a>、2021年1月1日時点）<br>
-        背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院 地理院タイル</a>
-      </p>
-      <p><a href="about.html">データの詳細・利用条件・算出方法</a>　｜　<a href="https://github.com/akhayash/tesla-sc-japan" target="_blank" rel="noopener">ソースコード</a></p>
-      <p class="muted">急速充電器は長距離移動の経路充電にも使われるため、人口だけで需要を表すものではありません。本サイトは非公式の可視化で、Tesla, Inc. およびテンフィールズファクトリー株式会社とは関係がありません。</p>
+      <details class="sources">
+        <summary>データ出典・免責事項</summary>
+        <div class="source-body">
+          <p>
+            充電器：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>、
+            <a href="https://ev-charger.jp/area/" target="_blank" rel="noopener">FLASH公式</a>
+            （取得日 <span id="fetched">-</span>）<br>
+            人口：<a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">e-Stat</a> 令和2年国勢調査<br>
+            境界：<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報</a>を加工<br>
+            背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>
+          </p>
+          <p><a href="about.html">詳細な出典・利用条件</a> · <a href="https://github.com/akhayash/tesla-sc-japan" target="_blank" rel="noopener">GitHub</a></p>
+          <p class="muted">人口のみを需要の目安とした非公式の可視化です。Tesla, Inc. およびテンフィールズファクトリー株式会社とは関係がありません。</p>
+        </div>
+      </details>
     </footer>
   </aside>
 

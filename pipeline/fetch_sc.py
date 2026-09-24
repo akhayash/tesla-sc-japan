@@ -1,4 +1,4 @@
-"""Fetch Tesla Supercharger sites in Japan from supercharge.info."""
+"""Fetch Tesla Supercharger and NACS-compatible FLASH sites in Japan."""
 from __future__ import annotations
 
 import json
@@ -6,11 +6,21 @@ import re
 from datetime import datetime, timezone
 
 from common import OUT, WORK, get_json, to_lcc_km
+import fetch_flash
 
 URL = "https://supercharge.info/service/supercharge/allSites"
 
 OPEN = {"OPEN", "EXPANDING", "CLOSED_TEMP"}
 PLANNED = {"CONSTRUCTION", "PERMIT", "PLAN", "VOTING"}
+
+
+def previous_flash() -> tuple[list[dict] | None, str | None]:
+    path = OUT / "sc.geojson"
+    if not path.exists():
+        return None, None
+    fc = json.loads(path.read_text(encoding="utf-8"))
+    features = [f for f in fc["features"] if f["properties"].get("network") == "flash"]
+    return (features or None), fc.get("fetched_flash")
 
 
 def main() -> None:
@@ -33,6 +43,7 @@ def main() -> None:
                 "geometry": {"type": "Point", "coordinates": [round(lon, 6), round(lat, 6)]},
                 "properties": {
                     "id": s["id"],
+                    "network": "tesla",
                     "name": s.get("name"),
                     "facility": s.get("facilityName"),
                     "status": status,
@@ -54,14 +65,19 @@ def main() -> None:
         if p["stalls_est"]:
             p["stalls"] = median
     fetched = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    fc = {"type": "FeatureCollection", "fetched": fetched, "features": features}
+    old_flash, old_flash_fetched = previous_flash()
+    flash, fetched_flash = fetch_flash.fetch(old_flash, old_flash_fetched)
+    fc = {
+        "type": "FeatureCollection",
+        "fetched": fetched,
+        "fetched_flash": fetched_flash,
+        "features": features + flash,
+    }
     for path in (WORK / "sc.geojson", OUT / "sc.geojson"):
         path.write_text(json.dumps(fc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     n_open = sum(f["properties"]["group"] == "open" for f in features)
-    print(f"Japan sites: {len(features)} (open {n_open}, planned {len(features) - n_open})")
+    print(f"Tesla sites: {len(features)} (open {n_open}, planned {len(features) - n_open})")
 
 
 if __name__ == "__main__":
     main()
-
-

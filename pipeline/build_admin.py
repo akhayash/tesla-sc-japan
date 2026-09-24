@@ -51,7 +51,17 @@ def load_mesh() -> pd.DataFrame:
 
 
 def site_sets(sc: gpd.GeoDataFrame) -> dict[str, gpd.GeoDataFrame]:
-    return {"o": sc[sc["group"] == "open"], "a": sc}
+    network = sc["network"].fillna("tesla") if "network" in sc else pd.Series("tesla", index=sc.index)
+    tesla = sc[network == "tesla"]
+    flash = sc[network == "flash"]
+    return {
+        "o": tesla[tesla["group"] == "open"],
+        "a": tesla,
+        "fo": flash[flash["group"] == "open"],
+        "fa": flash,
+        "bo": sc[sc["group"] == "open"],
+        "ba": sc,
+    }
 
 
 def mesh_access(mesh: pd.DataFrame, sc: gpd.GeoDataFrame) -> pd.DataFrame:
@@ -151,12 +161,14 @@ def main() -> None:
         "muni_ward": to_records(summarise(ward_units, mesh, acc, "ward", sc, "ward")),
     }
     fc = json.loads((WORK / "sc.geojson").read_text(encoding="utf-8"))
+    sets = site_sets(sc)
     meta = {
         "sc_fetched": fc["fetched"],
+        "flash_fetched": fc.get("fetched_flash"),
         "catchment_km": CATCHMENT_KM,
         "population_total": int(pop_by_code.loc["00000", "pop"]),
-        "sites": {"o": int((sc["group"] == "open").sum()), "a": int(len(sc))},
-        "stalls": {"o": int(sc.loc[sc["group"] == "open", "stalls"].sum()), "a": int(sc["stalls"].sum())},
+        "sites": {key: int(len(sub)) for key, sub in sets.items()},
+        "stalls": {key: int(sub["stalls"].sum()) for key, sub in sets.items()},
     }
     (OUT / "admin_stats.json").write_text(
         json.dumps({"meta": meta, **stats}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
@@ -172,7 +184,8 @@ def main() -> None:
     for key in ("pref", "muni_city", "muni_ward"):
         tot_sites = sum(v["o_n_s"] for v in stats[key].values())
         tot_pop = sum(v["pop"] for v in stats[key].values())
-        print(f"{key}: units={len(stats[key])} open_sites={tot_sites} pop={tot_pop:,}")
+        flash_sites = sum(v["fo_n_s"] for v in stats[key].values())
+        print(f"{key}: units={len(stats[key])} open_sc={tot_sites} open_flash={flash_sites} pop={tot_pop:,}")
     print(f"mesh pop unassigned: {mesh['city'].isna().sum()}")
 
 

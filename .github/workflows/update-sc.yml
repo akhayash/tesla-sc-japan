@@ -1,4 +1,4 @@
-name: Update Supercharger data
+name: Update NACS charger data
 
 on:
   schedule:
@@ -37,12 +37,27 @@ jobs:
           path: data/raw
           key: raw-inputs-v1
 
+      - name: Restore FLASH geocodes
+        id: flash-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw/flash_geocode.json
+          key: flash-geocode-${{ hashFiles('docs/data/sc.geojson') }}
+          restore-keys: flash-geocode-
+
       - run: pip install -r requirements.txt
 
-      - name: Fetch Superchargers and rebuild if changed
+      - name: Fetch chargers and rebuild if changed
         id: update
         working-directory: pipeline
         run: python update_sc.py ${{ inputs.force && '--force' || '' }}
+
+      - name: Save FLASH geocodes
+        if: steps.flash-cache.outputs.cache-hit != 'true' || steps.update.outputs.changed == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw/flash_geocode.json
+          key: flash-geocode-${{ hashFiles('docs/data/sc.geojson') }}
 
       - name: Commit and publish
         if: steps.update.outputs.changed == 'true'
@@ -57,8 +72,7 @@ jobs:
             echo "Nothing to commit."
             exit 0
           fi
-          printf 'Update Supercharger data (%s)\n\n%s\n' "$(date -u +%F)" "$SUMMARY" > /tmp/msg.txt
+          printf 'Update NACS charger data (%s)\n\n%s\n' "$(date -u +%F)" "$SUMMARY" > /tmp/msg.txt
           git commit -F /tmp/msg.txt
           git push
           gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" || true
-

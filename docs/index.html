@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>テスラ スーパーチャージャー充足度マップ｜日本</title>
-  <meta name="description" content="日本のテスラ スーパーチャージャー配置を人口分布と重ね、人口に対して充電拠点が少ない地域を可視化します。">
+  <title>NACS急速充電器 充足度マップ｜日本</title>
+  <meta name="description" content="日本のテスラ スーパーチャージャーとFLASH NACS急速充電器を人口分布と重ね、充電拠点が少ない地域を可視化します。">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23e31937'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
@@ -12,8 +12,8 @@
 <body>
   <aside id="panel">
     <header>
-      <h1>スーパーチャージャー充足度マップ</h1>
-      <p class="sub">日本のテスラ スーパーチャージャー（SC）と人口分布<br><a href="village.html">もし日本が100人の村だったら</a>　｜　<a href="about.html">データ出典と算出方法</a></p>
+      <h1>NACS急速充電器 充足度マップ</h1>
+      <p class="sub">テスラSC・FLASHと人口分布<br><a href="village.html">もし日本が100人の村だったら（SC）</a>　｜　<a href="about.html">データ出典と算出方法</a></p>
     </header>
 
     <div class="tabs" role="tablist">
@@ -33,10 +33,10 @@
       <div class="ctl" data-show="A">
         <label for="metric">指標</label>
         <select id="metric">
-          <option value="p">人口10万人あたりSC数</option>
+          <option value="p">人口10万人あたり充電器数</option>
           <option value="a">30km圏アクセス（人口10万人あたり）</option>
           <option value="d">最寄りSCまでの平均距離</option>
-          <option value="n">SC数</option>
+          <option value="n">充電器数</option>
         </select>
       </div>
       <div class="ctl" data-show="B">
@@ -44,7 +44,7 @@
         <div class="seg" data-key="layer">
           <button data-v="ratio" class="active">充足率</button>
           <button data-v="pop">人口</button>
-          <button data-v="sc">SC密度</button>
+          <button data-v="sc">充電器密度</button>
         </div>
       </div>
       <div class="ctl" data-show="B">
@@ -62,6 +62,12 @@
           <button data-v="s">サイト数</button>
         </div>
       </div>
+      <div class="ctl checks">
+        <label>充電網</label>
+        <label><input type="checkbox" id="use-tesla" checked> テスラ SC</label>
+        <label><input type="checkbox" id="use-flash"> FLASH（NACS）</label>
+        <div class="muted">● SC（赤）　● FLASH（青）</div>
+      </div>
       <div class="ctl">
         <label>対象</label>
         <div class="seg" data-key="status">
@@ -70,7 +76,7 @@
         </div>
       </div>
       <div class="ctl checks">
-        <label><input type="checkbox" id="show-sc" checked> SCの位置を表示</label>
+        <label><input type="checkbox" id="show-sc" checked> 充電器の位置を表示</label>
         <label data-show="B"><input type="checkbox" id="pop-alpha" checked> 人口の少ないメッシュを薄く表示</label>
       </div>
       <div class="ctl">
@@ -105,13 +111,13 @@
     <footer>
       <h2 class="src-title">データ出典</h2>
       <p>
-        SC位置：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a> のデータを加工（取得日 <span id="fetched">-</span>）<br>
+        SC位置：<a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>、FLASH位置：<a href="https://ev-charger.jp/area/" target="_blank" rel="noopener">FLASH公式 設置場所一覧</a> のデータを加工（取得日 <span id="fetched">-</span>）<br>
         人口：出典 <a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">政府統計の総合窓口（e-Stat）</a>「令和2年国勢調査」（市区町村別の主な結果・地域メッシュ統計）を加工して作成<br>
         境界：「<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報（行政区域データ）</a>」（国土交通省）を加工して作成（<a href="https://github.com/smartnews-smri/japan-topography" target="_blank" rel="noopener">スマートニュース メディア研究所 簡略化版</a>、2021年1月1日時点）<br>
         背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院 地理院タイル</a>
       </p>
       <p><a href="about.html">データの詳細・利用条件・算出方法</a>　｜　<a href="https://github.com/akhayash/tesla-sc-japan" target="_blank" rel="noopener">ソースコード</a></p>
-      <p class="muted">SCは長距離移動の経路充電が主用途のため、人口だけで需要を表すものではありません。本サイトは非公式の可視化で、Tesla, Inc. とは関係がありません。</p>
+      <p class="muted">急速充電器は長距離移動の経路充電にも使われるため、人口だけで需要を表すものではありません。本サイトは非公式の可視化で、Tesla, Inc. およびテンフィールズファクトリー株式会社とは関係がありません。</p>
     </footer>
   </aside>
 
@@ -125,4 +131,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-

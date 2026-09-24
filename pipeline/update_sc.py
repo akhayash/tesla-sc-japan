@@ -15,7 +15,7 @@ import sys
 
 from common import OUT
 
-KEYS = ("name", "status", "stalls", "stalls_est")
+KEYS = ("network", "name", "status", "stalls", "stalls_est")
 
 
 def load(path) -> dict:
@@ -29,13 +29,17 @@ def diff(old: dict, new: dict) -> list[str]:
     lines = []
     for sid in new.keys() - old.keys():
         p = new[sid]["properties"]
-        lines.append(f"+ {p['name']} ({p['status']}, {p['stalls']} stalls)")
+        lines.append(f"+ [{p.get('network', 'tesla')}] {p['name']} ({p['status']}, {p['stalls']} stalls)")
     for sid in old.keys() - new.keys():
-        lines.append(f"- {old[sid]['properties']['name']}")
+        p = old[sid]["properties"]
+        lines.append(f"- [{p.get('network', 'tesla')}] {p['name']}")
     for sid in new.keys() & old.keys():
         a, b = old[sid]["properties"], new[sid]["properties"]
         if old[sid]["geometry"] != new[sid]["geometry"] or any(a.get(k) != b.get(k) for k in KEYS):
-            lines.append(f"~ {b['name']}: {a['status']}/{a['stalls']} -> {b['status']}/{b['stalls']}")
+            lines.append(
+                f"~ [{b.get('network', 'tesla')}] {b['name']}: "
+                f"{a['status']}/{a['stalls']} -> {b['status']}/{b['stalls']}"
+            )
     return sorted(lines)
 
 
@@ -64,7 +68,7 @@ def main() -> None:
     if not changes and not force:
         if previous is not None:
             sc_path.write_bytes(previous)  # keep the committed file (and its date) untouched
-        print("No Supercharger changes.")
+        print("No charger changes.")
         write_output(False, [])
         return
 
@@ -79,4 +83,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

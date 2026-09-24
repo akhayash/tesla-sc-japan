@@ -15,11 +15,14 @@ CASES = {
     "a_muni_access": "#mode=A&unit=muni_city&metric=a&rankMin=100000",
     "a_ward_dist": "#mode=A&unit=muni_ward&metric=d&rankMin=100000",
     "a_muni_count": "#mode=A&unit=muni_ward&metric=n&weight=s",
+    "a_flash_only": "#mode=A&unit=pref&metric=p&tesla=0&flash=1",
+    "a_both": "#mode=A&unit=pref&metric=a&tesla=1&flash=1",
     "bad_hash": "#mode=Z&unit=x&bw=20&metric=q",
     "b_ratio": "#mode=B&layer=ratio&bw=30",
     "b_pop": "#mode=B&layer=pop&bw=30&base=photo",
     "a_std": "#mode=A&unit=pref&base=std",
     "b_sc": "#mode=B&layer=sc&bw=10&status=a&weight=s",
+    "b_flash_ratio": "#mode=B&layer=ratio&bw=30&tesla=0&flash=1",
 }
 
 errors: list[str] = []
@@ -36,6 +39,14 @@ with sync_playwright() as p:
         page.screenshot(path=str(OUT / f"{name}.png"))
         info = page.evaluate("() => ({legend: document.querySelector('#legend').innerText.slice(0,120), rank: document.querySelector('#rank-list').innerText.slice(0,200), summary: document.querySelector('#summary').innerText})")
         print(name, info)
+        if name == "a_pref":
+            page.click("#use-tesla")
+            if not page.is_checked("#use-tesla"):
+                errors.append("both charger networks could be disabled")
+        if name == "a_flash_only" and (page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
+            errors.append("FLASH-only state was not restored from URL")
+        if name == "a_both" and (not page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
+            errors.append("combined charger state was not restored from URL")
         if name == "a_muni_access":
             page.click("#rank-list li:first-child")
             page.wait_for_timeout(2500)
@@ -60,7 +71,4 @@ with sync_playwright() as p:
 
 print("errors:", errors or "none")
 sys.exit(1 if errors else 0)
-
-
-
 

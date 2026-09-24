@@ -1,4 +1,4 @@
-"""Run the whole data pipeline: fetch -> aggregate -> web assets."""
+"""Run the whole data pipeline: fetch chargers -> aggregate -> web assets."""
 from __future__ import annotations
 
 import os
@@ -39,4 +39,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

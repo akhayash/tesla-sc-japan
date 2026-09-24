@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>データと算出方法｜スーパーチャージャー充足度マップ</title>
+  <title>データと算出方法｜NACS急速充電器 充足度マップ</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23e31937'/%3E%3C/svg%3E">
   <style>
     body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif; color: #1f2328; margin: 0; line-height: 1.75; }
@@ -26,7 +26,7 @@
 <main>
   <p class="back"><a href="./">← 地図に戻る</a></p>
   <h1>データと算出方法</h1>
-  <p class="muted">本サイトは日本のテスラ スーパーチャージャー（SC）の配置を人口分布と比較するための非公式の可視化です。Tesla, Inc. とは関係がありません。</p>
+  <p class="muted">本サイトは日本のテスラ スーパーチャージャー（SC）とFLASHのNACS対応急速充電器の配置を人口分布と比較するための非公式の可視化です。Tesla, Inc. およびテンフィールズファクトリー株式会社とは関係がありません。</p>
 
   <h2>データ出典</h2>
   <table>
@@ -37,6 +37,12 @@
         <td><a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>（有志コミュニティ）<br>取得日：<span id="fetched">-</span></td>
         <td>公開データを参照。Teslaによる提供・検証ではなく、正確性は保証されません（<a href="https://supercharge.info/about" target="_blank" rel="noopener">同サイトの説明</a>）。</td>
         <td>日本のサイトを抽出。閉鎖済みを除外し「営業中」「計画・建設中（建設中・許認可中・計画・候補）」に区分。ストール数未定の計画サイトは営業中サイトの中央値で推定。</td>
+      </tr>
+      <tr>
+        <td>FLASH NACS対応急速充電器<br>（住所・対応規格・基数・状態）</td>
+        <td><a href="https://ev-charger.jp/area/" target="_blank" rel="noopener">FLASH公式 設置場所一覧</a>（テンフィールズファクトリー株式会社）<br>取得日：<span id="fetched-flash">-</span></td>
+        <td>公開されている設置場所一覧を参照。利用前にFLASH公式の最新情報を確認してください。</td>
+        <td>NACS対応拠点のみ抽出。住所を<a href="https://maps.gsi.go.jp/development/geocoding.html" target="_blank" rel="noopener">国土地理院 位置検索</a>で座標化。「調整中」は計画中として区分。CHAdeMO/NACS共用器は同時充電できないため1基を1ストールとして数え、複数基の明記がある場合はNACS対応基数を使用。</td>
       </tr>
       <tr>
         <td>市区町村別人口</td>
@@ -68,20 +74,21 @@
     出典：政府統計の総合窓口（e-Stat）（<a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">https://www.e-stat.go.jp/</a>）「令和2年国勢調査」を加工して作成<br>
     「国土数値情報（行政区域データ）」（国土交通省）（<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">https://nlftp.mlit.go.jp/ksj/</a>）を加工して作成<br>
     背景地図：国土地理院 地理院タイル<br>
-    スーパーチャージャー位置：supercharge.info のデータを加工して作成
+    スーパーチャージャー位置：supercharge.info のデータを加工して作成<br>
+    FLASH位置：FLASH公式 設置場所一覧と国土地理院 位置検索のデータを加工して作成
   </div>
 
   <h2>指標の算出方法</h2>
   <h3>行政区別</h3>
   <table>
-    <tr><th>人口10万人あたりSC数</th><td>区域内のSC数（サイト数またはストール数）÷ 区域の人口 × 100,000。SCの所属区域は位置座標と境界の重ね合わせで判定（海岸線付近で境界外となる点は最寄りの区域に割付）。</td></tr>
+    <tr><th>人口10万人あたり充電器数</th><td>区域内の選択中の充電器数（サイト数またはストール数）÷ 区域の人口 × 100,000。所属区域は位置座標と境界の重ね合わせで判定（海岸線付近で境界外となる点は最寄りの区域に割付）。</td></tr>
     <tr><th>30km圏アクセス</th><td>2段階浮動集水域法（2SFCA）。① 各SC <i>j</i> について、半径30km以内の1kmメッシュ人口 <i>P<sub>j</sub></i> を合計し、容量比 <i>R<sub>j</sub></i> = 容量<sub><i>j</i></sub> ÷ <i>P<sub>j</sub></i> を求める。② 各メッシュで半径30km以内のSCの <i>R<sub>j</sub></i> を合計し、10万人あたりに換算。③ 区域内のメッシュを人口で加重平均。隣接自治体のSCも反映されます。</td></tr>
     <tr><th>最寄りSCまでの平均距離</th><td>区域内の各1kmメッシュ中心から最寄りSCまでの直線距離を、メッシュ人口で加重平均した値。</td></tr>
     <tr><th>SC数</th><td>区域内のSC数。</td></tr>
   </table>
 
   <h3>1kmメッシュ</h3>
-  <p>人口とSC（ストール数またはサイト数）を、同じ幅 σ（10 / 30 / 50 km）の2次元ガウスカーネルで平滑化し、密度（人/km²、基/km²）を求めます。</p>
+  <p>人口と選択中の充電器（ストール数またはサイト数）を、同じ幅 σ（10 / 30 / 50 km）の2次元ガウスカーネルで平滑化し、密度（人/km²、基/km²）を求めます。</p>
   <span class="formula">期待SC密度 = 平滑化人口密度 × (全国SC数 ÷ 全国人口)</span>
   <span class="formula">充足率 = 平滑化SC密度 ÷ 期待SC密度</span>
   <p>充足率 1 は人口比どおり、1 未満は人口のわりにSCが少ないことを示します。人口の平滑化は日本中心のランベルト正角円錐図法上の1km格子で事前計算し、SC密度はブラウザ上で計算しています。「人口の少ないメッシュを薄く表示」をオンにすると、各メッシュの人口（平滑化前）に応じて透明度を変えます。</p>
@@ -91,7 +98,8 @@
     <li>SCは長距離移動時の経路充電が主な用途です。本サイトは人口のみを需要の目安としており、高速道路網・観光需要・EV保有台数は考慮していません。</li>
     <li>距離はすべて直線距離で、道路距離・所要時間ではありません。</li>
     <li>人口は2020年時点、境界は2021年1月1日時点のデータです。SCデータは毎週自動で確認し、変化があった場合に更新しています（取得日は変化を反映した日）。</li>
-    <li>SCの情報は有志による集計で、実際の状況と異なる場合があります。最新・正確な情報は <a href="https://www.tesla.com/ja_jp/findus" target="_blank" rel="noopener">Tesla公式サイト</a> を確認してください。</li>
+    <li>SCとFLASHの情報は実際の状況と異なる場合があります。最新・正確な情報は <a href="https://www.tesla.com/ja_jp/findus" target="_blank" rel="noopener">Tesla公式サイト</a>および<a href="https://ev-charger.jp/area/" target="_blank" rel="noopener">FLASH公式 設置場所一覧</a>を確認してください。</li>
+    <li>FLASHの座標は住所検索結果のため、施設内の正確な充電器位置とは異なる場合があります。住所検索できなかった拠点は集計対象外です。</li>
   </ul>
 
   <h2>ソフトウェア</h2>
@@ -104,8 +112,10 @@
   </p>
 </main>
 <script>
-  fetch('data/sc.geojson').then((r) => r.json()).then((d) => { document.getElementById('fetched').textContent = d.fetched; }).catch(() => {});
+  fetch('data/sc.geojson').then((r) => r.json()).then((d) => {
+    document.getElementById('fetched').textContent = d.fetched;
+    document.getElementById('fetched-flash').textContent = d.fetched_flash || '-';
+  }).catch(() => {});
 </script>
 </body>
 </html>
-

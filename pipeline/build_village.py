@@ -75,7 +75,8 @@ def main() -> None:
 
     mesh = ba.load_mesh()
     sc = ba.load_sc()
-    sets = ba.site_sets(sc)
+    all_sets = ba.site_sets(sc)
+    sets = {"o": all_sets["o"], "a": all_sets["a"]}
     pop = mesh["pop"].to_numpy()
     xy = mesh[["x", "y"]].to_numpy()
     dist = {st: cKDTree(sub[["x", "y"]].to_numpy()).query(xy)[0] for st, sub in sets.items()}
@@ -120,7 +121,7 @@ def main() -> None:
                             "people": per100(sum(city[c]["pop"] for c in isolated) / total_pop)},
         "low_ratio": {"people": per100(pop[low].sum() / pop.sum()), "examples": [name(c) for c in low_cities]},
         "planned": {"within30_now": within30["o"], "within30_all": within30["a"],
-                    "planned_sites": int((sc["group"] == "planned").sum()),
+                    "planned_sites": int((sets["a"]["group"] == "planned").sum()),
                     "still_isolated": [name(c) for c in still_isolated]},
     }
     (OUT / "village.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -129,4 +130,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

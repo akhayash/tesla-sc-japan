@@ -71,7 +71,7 @@ with sync_playwright() as p:
                 errors.append("SA legend toggle did not restore state")
             if "充電器名" not in page.inner_text(".transport-key + .field-note"):
                 errors.append("zoom label guidance is missing")
-            if page.locator(".power-key .bolts").count() != 3:
+            if page.locator("#power-key img").count() != 3:
                 errors.append("charger power tier legend is missing")
         if name == "a_flash_only" and (page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
             errors.append("FLASH-only state was not restored from URL")

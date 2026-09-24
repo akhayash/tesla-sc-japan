@@ -132,7 +132,7 @@
     new Promise((res) => map.on('load', res)),
   ]).then(([s, t, c, rf, mm, buf]) => {
     stats = s; topo = t; sc = c; roadFacilityData = rf; meshMeta = mm;
-    for (const f of sc.features) chargerById.set(f.properties.id, f.properties);
+    for (const f of sc.features) chargerById.set(f.properties.id, { props: f.properties, coords: f.geometry.coordinates });
     mesh = parseMesh(buf, mm);
     for (const k of ['pref', 'muni_city', 'muni_ward']) {
       unitGeo[k] = topojson.feature(topo, topo.objects[k]);
@@ -341,9 +341,11 @@
       },
     });
     map.addSource('sc', { type: 'geojson', data: sc });
+    registerChargerIcons();
     const powerScale = ['step', ['coalesce', ['get', 'kw'], 0], 0.8, 100, 1, 200, 1.25];
     map.addLayer({
       id: 'sc-points', type: 'circle', source: 'sc',
+      maxzoom: ICON_MIN_ZOOM,
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['*', 3, powerScale], 10, ['*', 7, powerScale]],
         'circle-color': ['case',
@@ -356,13 +358,27 @@
       },
     });
     map.addLayer({
+      id: 'sc-icons', type: 'symbol', source: 'sc',
+      minzoom: ICON_MIN_ZOOM,
+      layout: {
+        'icon-image': ['concat', 'charger-',
+          ['coalesce', ['get', 'network'], 'tesla'], '-',
+          ['step', ['coalesce', ['get', 'kw'], 0], 0, 1, 1, 100, 2, 200, 3], '-',
+          ['get', 'group']],
+        'icon-size': ['interpolate', ['linear'], ['zoom'], ICON_MIN_ZOOM, 0.85, 12, 1.1],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'symbol-sort-key': ['coalesce', ['get', 'kw'], 0],
+      },
+    });
+    map.addLayer({
       id: 'sc-labels', type: 'symbol', source: 'sc',
       minzoom: 9,
       layout: {
         'text-field': ['get', 'name'],
         'text-font': ['Noto Sans Regular'],
         'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12],
-        'text-offset': [0, 1.25],
+        'text-offset': [0, 1.35],
         'text-anchor': 'top',
         'text-padding': 3,
         'text-optional': true,
@@ -396,15 +412,18 @@
     });
     map.on('click', 'units-fill', (e) => {
       if (state.mode !== 'A') return;
-      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'road-service-areas', 'road-junctions'] }).length) return;
+      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'sc-icons', 'road-service-areas', 'road-junctions'] }).length) return;
       openUnitPopup(e.features[0].properties.code, e.lngLat);
     });
-    map.on('mouseenter', 'sc-points', () => { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', 'sc-points', () => { map.getCanvas().style.cursor = ''; });
-    map.on('click', 'sc-points', (e) => {
-      const p = chargerById.get(e.features[0].properties.id) || e.features[0].properties;
-      popup.setLngLat(e.lngLat).setHTML(chargerPopupHtml(p)).addTo(map);
-    });
+    for (const id of ['sc-points', 'sc-icons']) {
+      map.on('mouseenter', id, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
+      map.on('click', id, (e) => {
+        const c = chargerById.get(e.features[0].properties.id);
+        if (!c) return;
+        popup.setLngLat(c.coords).setHTML(chargerPopupHtml(c.props, c.coords)).addTo(map);
+      });
+    }
     for (const id of ['road-service-areas', 'road-junctions']) {
       map.on('mousemove', id, (e) => {
         const p = e.features[0].properties;
@@ -518,6 +537,7 @@
     const weightUsed = state.mode === 'A' ? state.metric !== 'd' : meshDensityShown;
     $('#ctl-weight').hidden = !weightUsed;
     $('#result-guide').hidden = state.mode === 'B' && state.layer === 'none';
+    syncPowerKey();
   }
 
   function render() {
@@ -530,9 +550,8 @@
       filters.push(['==', ['coalesce', ['get', 'network'], 'tesla'], state.flash ? 'flash' : 'tesla']);
     }
     const chargerFilter = filters.length ? ['all', ...filters] : null;
-    map.setFilter('sc-points', chargerFilter);
-    map.setFilter('sc-labels', chargerFilter);
-    for (const id of ['sc-points', 'sc-labels']) {
+    for (const id of ['sc-points', 'sc-icons', 'sc-labels']) {
+      map.setFilter(id, chargerFilter);
       map.setLayoutProperty(id, 'visibility', state.showSc ? 'visible' : 'none');
     }
     for (const id of ['expressway-casing', 'expressway-line']) {
@@ -765,6 +784,97 @@
   const STATUS_LABEL = { OPEN: '営業中', ADJUSTING: '調整中', EXPANDING: '営業中（拡張中）', CLOSED_TEMP: '一時休止', CONSTRUCTION: '建設中', PERMIT: '許認可中', PLAN: '計画中', VOTING: '候補' };
   const GENERATION_LABEL = { v2: 'V2', v3: 'V3', v4: 'V4', urban: 'Urban' };
   const PLUG_LABEL = { tpc: 'TPC', nacs: 'NACS' };
+  const ICON_MIN_ZOOM = 7;
+  const NETWORK_COLOR = { tesla: '#e31937', flash: '#0969da' };
+  const BOLT_PATH = 'M13.5 2 4 14h7l-1.5 8L19 10h-7z';
+  const AERIAL_ZOOM = 18;
+  const AERIAL_BOX = { w: 272, h: 150 };
+
+  function drawChargerIcon(network, tier, planned) {
+    const ratio = 2, height = 18, boltScale = 0.5, boltStep = 8;
+    const bolts = tier;
+    const groupWidth = bolts ? bolts * 7.5 + (bolts - 1) * 0.5 : 0;
+    const width = bolts ? Math.max(height, groupWidth + 10) : 12;
+    const iconHeight = bolts ? height : 12;
+    const canvas = document.createElement('canvas');
+    canvas.width = (width + 4) * ratio;
+    canvas.height = (iconHeight + 4) * ratio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(ratio, ratio);
+    const color = NETWORK_COLOR[network];
+    const r = iconHeight / 2;
+    ctx.beginPath();
+    ctx.moveTo(2 + r, 2);
+    ctx.lineTo(2 + width - r, 2);
+    ctx.arc(2 + width - r, 2 + r, r, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(2 + r, 2 + iconHeight);
+    ctx.arc(2 + r, 2 + r, r, Math.PI / 2, Math.PI * 1.5);
+    ctx.closePath();
+    ctx.shadowColor = 'rgba(0,0,0,.35)';
+    ctx.shadowBlur = 2;
+    ctx.fillStyle = planned ? '#ffffff' : color;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = planned ? color : '#ffffff';
+    ctx.stroke();
+    const bolt = new Path2D(BOLT_PATH);
+    const startX = 2 + (width - groupWidth) / 2 - 4 * boltScale;
+    const top = 2 + (iconHeight - 10) / 2 - 2 * boltScale;
+    ctx.fillStyle = planned ? color : '#ffffff';
+    for (let i = 0; i < bolts; i++) {
+      ctx.save();
+      ctx.translate(startX + i * boltStep, top);
+      ctx.scale(boltScale, boltScale);
+      ctx.fill(bolt);
+      ctx.restore();
+    }
+    return canvas;
+  }
+  function registerChargerIcons() {
+    for (const network of ['tesla', 'flash']) {
+      for (const tier of [0, 1, 2, 3]) {
+        for (const group of ['open', 'planned']) {
+          const canvas = drawChargerIcon(network, tier, group === 'planned');
+          const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+          map.addImage(`charger-${network}-${tier}-${group}`, data, { pixelRatio: 2 });
+        }
+      }
+    }
+  }
+  function syncPowerKey() {
+    const network = state.tesla ? 'tesla' : 'flash';
+    if ($('#power-key').dataset.network === network) return;
+    $('#power-key').dataset.network = network;
+    $('#power-key').innerHTML = [[3, '200kW以上'], [2, '100〜199kW'], [1, '100kW未満']]
+      .map(([tier, label]) => `<span><img src="${drawChargerIcon(network, tier, false).toDataURL()}" alt="" height="14">${label}</span>`).join('');
+  }
+
+  function aerialHtml(coords, approximate, mapsUrl) {
+    const [lon, lat] = coords;
+    const n = 2 ** AERIAL_ZOOM;
+    const fx = ((lon + 180) / 360) * n;
+    const fy = ((1 - Math.asinh(Math.tan((lat * Math.PI) / 180)) / Math.PI) / 2) * n;
+    const tx = Math.floor(fx), ty = Math.floor(fy);
+    const left = AERIAL_BOX.w / 2 - (fx - tx + 1) * 256;
+    const top = AERIAL_BOX.h / 2 - (fy - ty + 1) * 256;
+    const tiles = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        tiles.push(`<img src="https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${AERIAL_ZOOM}/${tx + dx}/${ty + dy}.jpg" alt="" loading="lazy" style="left:${(dx + 1) * 256}px;top:${(dy + 1) * 256}px" onerror="this.style.visibility='hidden'">`);
+      }
+    }
+    const street = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}`;
+    return `<figure class="aerial">
+        <div class="aerial-tiles" style="left:${left}px;top:${top}px">${tiles.join('')}</div>
+        <span class="aerial-pin"></span>
+        <figcaption>${approximate ? '位置は住所から推定 · ' : ''}航空写真：国土地理院</figcaption>
+      </figure>
+      <div class="popup-links">
+        <a href="${street}" target="_blank" rel="noopener">ストリートビュー ↗</a>
+        <a href="${esc(mapsUrl)}" target="_blank" rel="noopener">Googleマップ ↗</a>
+      </div>`;
+  }
 
   function powerTier(kw) {
     if (!kw) return 0;
@@ -777,7 +887,7 @@
   function countList(obj, labels) {
     return Object.entries(obj || {}).map(([k, v]) => `${esc(labels[k] || k.toUpperCase())} ×${v}`).join(' · ');
   }
-  function chargerPopupHtml(p) {
+  function chargerPopupHtml(p, coords) {
     const flash = p.network === 'flash';
     const kw = Number(p.kw) || null;
     const tier = powerTier(kw);
@@ -799,9 +909,12 @@
     if (p.opened) rows.push(['開設日', esc(p.opened)]);
     if (p.hours) rows.push(['営業時間', esc(p.hours)]);
     const sub = [flash ? 'FLASH' : 'テスラ SC', p.facility].filter(Boolean).map(esc).join(' · ');
+    const mapsUrl = flash && /^https:\/\//.test(p.url || '') ? p.url
+      : `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`;
     return `<div class="charger-popup ${flash ? 'flash' : 'tesla'}">
       <h3>${esc(p.name)}</h3>
       <div class="muted">${sub}</div>
+      ${aerialHtml(coords, flash, mapsUrl)}
       <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
       <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
     </div>`;

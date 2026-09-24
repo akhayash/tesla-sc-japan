@@ -49,14 +49,23 @@ cd pipeline
 | `pipeline/build_admin.py` | 手法Aの集計 → `docs/data/admin_stats.json` |
 | `pipeline/build_mesh.py` | 手法Bの人口平滑化 → `docs/data/mesh.bin`, `mesh_meta.json` |
 | `pipeline/run_all.py` | 上記と TopoJSON 生成（`docs/data/boundaries.topojson`）を一括実行 |
+| `pipeline/update_sc.py` | SCの変化を確認し、変化があれば SC と行政区別集計だけを再生成（自動更新で使用） |
 
 ローカル確認：
 
 ```powershell
+.\.venv\Scripts\python -m pip install -r requirements-dev.txt
 cd docs; python -m http.server 8765
 # 別ターミナルで（Microsoft Edge を使用）
 .\.venv\Scripts\python tools\smoke_test.py http://localhost:8765/ screenshots
 ```
+
+## SCデータの自動更新
+GitHub Actions（`.github/workflows/update-sc.yml`）が毎週月曜 03:00（JST）に supercharge.info を確認し、サイトの追加・削除・状態やストール数の変化があった場合のみ `docs/data/sc.geojson` と `docs/data/admin_stats.json` を再生成してコミットします（変化がない週はコミットしません）。人口・境界の元データは Actions のキャッシュを使います。1kmメッシュ表示のSC密度はブラウザで計算するため再生成不要です。
+
+- 手動で即時更新：Actions タブの「Update Supercharger data」→ Run workflow（`force` で変化がなくても再集計）
+- ローカルで更新：`cd pipeline; ..\.venv\Scripts\python update_sc.py` → 変更をコミットして push
+- 国勢調査の更新時など全データを作り直す場合は `run_all.py` を実行します。
 
 ## 留意点
 - SCは長距離移動時の経路充電が主用途のため、人口だけで需要を表すものではありません（高速道路網・観光需要・EV保有台数は未反映）。

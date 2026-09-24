@@ -22,6 +22,7 @@ CASES = {
     "b_pop": "#mode=B&layer=pop&bw=30&base=photo",
     "a_std": "#mode=A&unit=pref&base=std",
     "b_sc": "#mode=B&layer=sc&bw=10&status=a&weight=s",
+    "b_none": "#mode=B&layer=none",
     "b_flash_ratio": "#mode=B&layer=ratio&bw=30&tesla=0&flash=1",
 }
 
@@ -40,6 +41,18 @@ with sync_playwright() as p:
         info = page.evaluate("() => ({legend: document.querySelector('#legend').innerText.slice(0,120), rank: document.querySelector('#rank-list').innerText.slice(0,200), summary: document.querySelector('#summary').innerText})")
         print(name, info)
         if name == "a_pref":
+            if page.is_visible("#ctl-bw") or page.is_visible("#ctl-pop-alpha"):
+                errors.append("mesh-only controls were visible in administrative mode")
+            page.click("#panel-toggle")
+            page.wait_for_timeout(250)
+            if "panel-collapsed" not in (page.get_attribute("body", "class") or ""):
+                errors.append("side panel did not collapse")
+            if page.get_attribute("#panel-toggle", "aria-expanded") != "false":
+                errors.append("side panel toggle accessibility state was not updated")
+            page.click("#panel-toggle")
+            page.wait_for_timeout(250)
+            if "panel-collapsed" in (page.get_attribute("body", "class") or ""):
+                errors.append("side panel did not reopen")
             page.click(".network-option.tesla")
             if not page.is_checked("#use-tesla"):
                 errors.append("both charger networks could be disabled")
@@ -68,6 +81,14 @@ with sync_playwright() as p:
             page.screenshot(path=str(OUT / "a_rank_click.png"))
             print("popup:", page.inner_text(".maplibregl-popup-content")[:200].replace("\n", " "))
         if name == "b_ratio":
+            page.click('[data-key="layer"] [data-v="ratio"]')
+            if page.locator('[data-key="layer"] button.active').count() or "layer=none" not in page.url:
+                errors.append("active mesh layer could not be toggled off")
+            if page.is_visible("#ctl-bw") or page.is_visible("#ctl-weight") or page.is_visible("#ctl-pop-alpha"):
+                errors.append("mesh controls remained visible after toggling the layer off")
+            page.click('[data-key="layer"] [data-v="ratio"]')
+            if not page.locator('[data-key="layer"] [data-v="ratio"]').evaluate("el => el.classList.contains('active')"):
+                errors.append("mesh layer could not be toggled back on")
             page.mouse.move(1000, 520)
             for _ in range(6):
                 page.mouse.wheel(0, -400)
@@ -82,6 +103,13 @@ with sync_playwright() as p:
             print("tooltip:", tips)
             if not any(tips):
                 errors.append("mesh tooltip never appeared")
+        if name == "b_none":
+            if page.locator('[data-key="layer"] button.active').count():
+                errors.append("no-mesh state was not restored from URL")
+            if page.inner_text("#legend").strip() or page.inner_text("#summary").strip():
+                errors.append("no-mesh state retained mesh results")
+            if page.is_visible("#ctl-bw") or page.is_visible("#ctl-weight") or page.is_visible("#ctl-pop-alpha"):
+                errors.append("no-mesh state retained irrelevant mesh controls")
     browser.close()
 
 print("errors:", errors or "none")

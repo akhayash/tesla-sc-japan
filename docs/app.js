@@ -149,7 +149,7 @@
   function readHash() {
     const ALLOWED = {
       mode: ['A', 'B'], unit: ['pref', 'muni_city', 'muni_ward'], metric: ['p', 'a', 'd', 'n'],
-      weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc'], bw: ['10', '30', '50'],
+      weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc', 'none'], bw: ['10', '30', '50'],
       rankMin: ['0', '50000', '100000', '300000'], showSc: ['0', '1'], popAlpha: ['0', '1'],
       tesla: ['0', '1'], flash: ['0', '1'], expressway: ['0', '1'], roadFacilities: ['0', '1'],
       facilityIc: ['0', '1'], facilityJct: ['0', '1'], facilitySmart: ['0', '1'],
@@ -445,10 +445,16 @@
 
   // ---------- UI ----------
   function bindUi() {
+    $('#panel-toggle').addEventListener('click', () => {
+      const collapsed = document.body.classList.toggle('panel-collapsed');
+      $('#panel-toggle').setAttribute('aria-expanded', String(!collapsed));
+      $('#panel-toggle').setAttribute('aria-label', collapsed ? 'サイドパネルを開く' : 'サイドパネルを閉じる');
+      setTimeout(() => map.resize(), 220);
+    });
     document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { state.mode = b.dataset.mode; render(); }));
     document.querySelectorAll('.seg').forEach((seg) => {
       seg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-        state[seg.dataset.key] = b.dataset.v;
+        state[seg.dataset.key] = seg.dataset.key === 'layer' && state.layer === b.dataset.v ? 'none' : b.dataset.v;
         if (seg.dataset.key === 'unit') state.rankMin = b.dataset.v === 'pref' ? '0' : '100000';
         render();
       }));
@@ -513,8 +519,12 @@
     $('#use-flash').checked = state.flash;
     $('#basemap').value = state.base;
     $('#pop-alpha').checked = state.popAlpha;
-    const weightUsed = state.mode === 'A' ? state.metric !== 'd' : state.layer !== 'pop';
+    const meshDensityShown = state.mode === 'B' && (state.layer === 'ratio' || state.layer === 'sc');
+    $('#ctl-bw').hidden = !meshDensityShown;
+    $('#ctl-pop-alpha').hidden = !meshDensityShown;
+    const weightUsed = state.mode === 'A' ? state.metric !== 'd' : meshDensityShown;
     $('#ctl-weight').hidden = !weightUsed;
+    $('#result-guide').hidden = state.mode === 'B' && state.layer === 'none';
   }
 
   function render() {
@@ -669,6 +679,15 @@
   // ---------- Method B ----------
   function renderB() {
     for (const id of ['units-fill', 'units-line', 'units-hl']) map.setLayoutProperty(id, 'visibility', 'none');
+    if (state.layer === 'none') {
+      overlay.setProps({ layers: [] });
+      bitmap = null;
+      $('#tooltip').hidden = true;
+      $('#legend').innerHTML = '';
+      $('#metric-note').textContent = '';
+      $('#summary').innerHTML = '';
+      return;
+    }
     const bw = Number(state.bw);
     const pd = mesh.pd[bw];
     const { sd, total } = scDensity(bw, state.status, state.weight);

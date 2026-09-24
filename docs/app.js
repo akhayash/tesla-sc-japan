@@ -58,7 +58,7 @@
 
   const state = {
     mode: 'A', unit: 'pref', metric: 'p', weight: 't', status: 'o',
-    layer: 'ratio', bw: '30', showSc: true, popAlpha: true, rankMin: '0',
+    layer: 'ratio', bw: '30', showSc: true, popAlpha: true, rankMin: '0', base: 'pale',
   };
   readHash();
 
@@ -69,20 +69,22 @@
   const scDensityCache = new Map();
   let bitmap = null;
 
+  const GSI_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
+  const BASEMAPS = {
+    pale: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', maxzoom: 18 },
+    std: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', maxzoom: 18 },
+    photo: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', maxzoom: 18 },
+    blank: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png', minzoom: 5, maxzoom: 14 },
+  };
+  const baseSources = {}, baseLayers = [];
+  for (const [id, b] of Object.entries(BASEMAPS)) {
+    baseSources[`base-${id}`] = { type: 'raster', tiles: [b.tiles], tileSize: 256, minzoom: b.minzoom || 0, maxzoom: b.maxzoom, attribution: GSI_ATTR };
+    baseLayers.push({ id: `base-${id}`, type: 'raster', source: `base-${id}`, layout: { visibility: id === state.base ? 'visible' : 'none' } });
+  }
+
   const map0 = new maplibregl.Map({
     container: 'map',
-    style: {
-      version: 8,
-      sources: {
-        gsi: {
-          type: 'raster',
-          tiles: ['https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'],
-          tileSize: 256, maxzoom: 18,
-          attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>',
-        },
-      },
-      layers: [{ id: 'gsi', type: 'raster', source: 'gsi' }],
-    },
+    style: { version: 8, sources: baseSources, layers: baseLayers },
     center: [137.5, 37.5], zoom: 4.6, minZoom: 3.5, maxZoom: 13,
     dragRotate: false, pitchWithRotate: false,
     attributionControl: {
@@ -124,6 +126,7 @@
       mode: ['A', 'B'], unit: ['pref', 'muni_city', 'muni_ward'], metric: ['p', 'a', 'd', 'n'],
       weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc'], bw: ['10', '30', '50'],
       rankMin: ['0', '50000', '100000', '300000'], showSc: ['0', '1'], popAlpha: ['0', '1'],
+      base: ['pale', 'std', 'photo', 'blank'],
     };
     const p = new URLSearchParams(location.hash.slice(1));
     for (const k of Object.keys(state)) {
@@ -295,6 +298,11 @@
     $('#metric').addEventListener('change', (e) => { state.metric = e.target.value; render(); });
     $('#rank-min').addEventListener('change', (e) => { state.rankMin = e.target.value; render(); });
     $('#show-sc').addEventListener('change', (e) => { state.showSc = e.target.checked; render(); });
+    $('#basemap').addEventListener('change', (e) => {
+      state.base = e.target.value;
+      for (const id of Object.keys(BASEMAPS)) map.setLayoutProperty(`base-${id}`, 'visibility', id === state.base ? 'visible' : 'none');
+      writeHash();
+    });
     $('#pop-alpha').addEventListener('change', (e) => { state.popAlpha = e.target.checked; render(); });
   }
 
@@ -308,6 +316,7 @@
     $('#rank-min').value = state.rankMin;
     $('#rank-min').hidden = state.unit === 'pref';
     $('#show-sc').checked = state.showSc;
+    $('#basemap').value = state.base;
     $('#pop-alpha').checked = state.popAlpha;
     const weightUsed = state.mode === 'A' ? state.metric !== 'd' : state.layer !== 'pop';
     $('#ctl-weight').hidden = !weightUsed;
@@ -534,6 +543,7 @@
   function fmtPop(p) { return p >= 1e8 ? `${(p / 1e8).toFixed(2)}億人` : `${nf.format(Math.round(p / 1e4))}万人`; }
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 })();
+
 
 
 

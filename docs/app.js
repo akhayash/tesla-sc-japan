@@ -59,7 +59,8 @@
   const state = {
     mode: 'A', unit: 'pref', metric: 'p', weight: 't', status: 'o',
     layer: 'ratio', bw: '30', tesla: true, flash: false,
-    showSc: true, popAlpha: true, rankMin: '0', base: 'pale',
+    showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
+    rankMin: '0', base: 'pale',
   };
   readHash();
 
@@ -71,6 +72,10 @@
   let bitmap = null;
 
   const GSI_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
+  const GSI_VECTOR_ATTR = '<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank" rel="noopener">国土地理院最適化ベクトルタイル</a>';
+  const GSI_VECTOR_URL = 'https://cyberjapandata.gsi.go.jp/xyz/optimal_bvmap-v1/optimal_bvmap-v1.pmtiles';
+  const pmtilesProtocol = new pmtiles.Protocol();
+  maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
   const BASEMAPS = {
     pale: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', maxzoom: 18 },
     std: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', maxzoom: 18 },
@@ -82,6 +87,11 @@
     baseSources[`base-${id}`] = { type: 'raster', tiles: [b.tiles], tileSize: 256, minzoom: b.minzoom || 0, maxzoom: b.maxzoom, attribution: GSI_ATTR };
     baseLayers.push({ id: `base-${id}`, type: 'raster', source: `base-${id}`, layout: { visibility: id === state.base ? 'visible' : 'none' } });
   }
+  baseSources['gsi-vector'] = {
+    type: 'vector',
+    url: `pmtiles://${GSI_VECTOR_URL}`,
+    attribution: GSI_VECTOR_ATTR,
+  };
 
   const map0 = new maplibregl.Map({
     container: 'map',
@@ -127,7 +137,8 @@
       mode: ['A', 'B'], unit: ['pref', 'muni_city', 'muni_ward'], metric: ['p', 'a', 'd', 'n'],
       weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc'], bw: ['10', '30', '50'],
       rankMin: ['0', '50000', '100000', '300000'], showSc: ['0', '1'], popAlpha: ['0', '1'],
-      tesla: ['0', '1'], flash: ['0', '1'], base: ['pale', 'std', 'photo', 'blank'],
+      tesla: ['0', '1'], flash: ['0', '1'], expressway: ['0', '1'], roadFacilities: ['0', '1'],
+      base: ['pale', 'std', 'photo', 'blank'],
     };
     const p = new URLSearchParams(location.hash.slice(1));
     for (const k of Object.keys(state)) {
@@ -241,6 +252,39 @@
     map.addLayer({ id: 'units-line', type: 'line', source: 'units', paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.2, 9, 1] } });
     map.addLayer({ id: 'units-hl', type: 'line', source: 'units', paint: { 'line-color': '#1f2328', 'line-width': 2 }, filter: ['==', ['get', 'code'], ''] });
 
+    map.addLayer({
+      id: 'expressway-casing', type: 'line', source: 'gsi-vector', 'source-layer': 'RdCL',
+      minzoom: 4,
+      filter: ['any', ['==', ['get', 'vt_rdctg'], '高速自動車国道等'], ['==', ['get', 'vt_motorway'], 1]],
+      layout: { visibility: state.expressway ? 'visible' : 'none', 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': 'rgba(255,255,255,.9)',
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.5, 8, 3.5, 12, 7],
+      },
+    });
+    map.addLayer({
+      id: 'expressway-line', type: 'line', source: 'gsi-vector', 'source-layer': 'RdCL',
+      minzoom: 4,
+      filter: ['any', ['==', ['get', 'vt_rdctg'], '高速自動車国道等'], ['==', ['get', 'vt_motorway'], 1]],
+      layout: { visibility: state.expressway ? 'visible' : 'none', 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#f59e0b',
+        'line-opacity': 0.9,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 8, 2, 12, 4],
+      },
+    });
+    map.addLayer({
+      id: 'road-facilities', type: 'circle', source: 'gsi-vector', 'source-layer': 'Anno',
+      minzoom: 8,
+      filter: ['in', ['get', 'vt_code'], ['literal', [2941, 2942, 2943, 2944, 2945]]],
+      layout: { visibility: state.roadFacilities ? 'visible' : 'none' },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 2.5, 12, 5],
+        'circle-color': ['match', ['get', 'vt_code'], 2943, '#ea580c', 2944, '#f97316', '#7c3aed'],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 1.2,
+      },
+    });
     map.addSource('sc', { type: 'geojson', data: sc });
     map.addLayer({
       id: 'sc-points', type: 'circle', source: 'sc',
@@ -277,7 +321,7 @@
     });
     map.on('click', 'units-fill', (e) => {
       if (state.mode !== 'A') return;
-      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points'] }).length) return;
+      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'road-facilities'] }).length) return;
       openUnitPopup(e.features[0].properties.code, e.lngLat);
     });
     map.on('mouseenter', 'sc-points', () => { map.getCanvas().style.cursor = 'pointer'; });
@@ -295,6 +339,21 @@
           ${p.opened && p.opened !== 'null' ? `<tr><td>開設日</td><td>${esc(p.opened)}</td></tr>` : ''}
           ${p.hours && p.hours !== 'null' ? `<tr><td>営業時間</td><td>${esc(p.hours)}</td></tr>` : ''}
         </table>`).addTo(map);
+    });
+    map.on('mousemove', 'road-facilities', (e) => {
+      const p = e.features[0].properties;
+      const type = { 2941: 'IC', 2942: 'JCT', 2943: 'SA', 2944: 'PA', 2945: 'スマートIC' }[p.vt_code] || '道路施設';
+      map.getCanvas().style.cursor = 'pointer';
+      showTip(e.originalEvent, `<b>${esc(p.vt_text || type)}</b><br>${type}`);
+    });
+    map.on('mouseleave', 'road-facilities', () => {
+      map.getCanvas().style.cursor = '';
+      $('#tooltip').hidden = true;
+    });
+    map.on('click', 'road-facilities', (e) => {
+      const p = e.features[0].properties;
+      const type = { 2941: 'IC', 2942: 'JCT', 2943: 'SA', 2944: 'PA', 2945: 'スマートIC' }[p.vt_code] || '道路施設';
+      popup.setLngLat(e.lngLat).setHTML(`<h3>${esc(p.vt_text || type)}</h3><div>${type}</div>`).addTo(map);
     });
   }
 
@@ -325,6 +384,8 @@
     $('#metric').addEventListener('change', (e) => { state.metric = e.target.value; render(); });
     $('#rank-min').addEventListener('change', (e) => { state.rankMin = e.target.value; render(); });
     $('#show-sc').addEventListener('change', (e) => { state.showSc = e.target.checked; render(); });
+    $('#show-expressway').addEventListener('change', (e) => { state.expressway = e.target.checked; render(); });
+    $('#show-road-facilities').addEventListener('change', (e) => { state.roadFacilities = e.target.checked; render(); });
     for (const key of ['tesla', 'flash']) {
       $(`#use-${key}`).addEventListener('change', (e) => {
         state[key] = e.target.checked;
@@ -354,6 +415,8 @@
     $('#rank-min').value = state.rankMin;
     $('#rank-min').hidden = state.unit === 'pref';
     $('#show-sc').checked = state.showSc;
+    $('#show-expressway').checked = state.expressway;
+    $('#show-road-facilities').checked = state.roadFacilities;
     $('#use-tesla').checked = state.tesla;
     $('#use-flash').checked = state.flash;
     $('#basemap').value = state.base;
@@ -373,6 +436,10 @@
     }
     map.setFilter('sc-points', filters.length ? ['all', ...filters] : null);
     map.setLayoutProperty('sc-points', 'visibility', state.showSc ? 'visible' : 'none');
+    for (const id of ['expressway-casing', 'expressway-line']) {
+      map.setLayoutProperty(id, 'visibility', state.expressway ? 'visible' : 'none');
+    }
+    map.setLayoutProperty('road-facilities', 'visibility', state.roadFacilities ? 'visible' : 'none');
     if (state.mode === 'A') renderA(); else renderB();
   }
 
@@ -539,7 +606,7 @@
         _imageCoordinateSystem: deck.COORDINATE_SYSTEM.LNGLAT,
         textureParameters: { minFilter: 'nearest', magFilter: 'nearest' },
         pickable: true,
-        beforeId: 'sc-points',
+        beforeId: 'expressway-casing',
         onHover: (info) => {
           const tip = $('#tooltip');
           if (!info.coordinate) { tip.hidden = true; return; }
@@ -588,6 +655,3 @@
   function fmtPop(p) { return p >= 1e8 ? `${(p / 1e8).toFixed(2)}億人` : `${nf.format(Math.round(p / 1e4))}万人`; }
   function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 })();
-
-
-

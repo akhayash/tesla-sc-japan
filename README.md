@@ -16,6 +16,8 @@
 
 数え方（サイト数／ストール数）、充電網（SC／FLASH）、対象（営業中のみ／計画・建設中を含む）を切り替えられます。サイドパネルに「人口のわりに少ない」地域のランキングを表示し、人口規模で絞り込めます。
 
+国土地理院の最適化ベクトルタイルから、高速道路等とIC・JCT・スマートIC・SA・PAを重ねて表示できます。交通レイヤは個別にON/OFFでき、施設名は地図上の点を選択すると表示します。
+
 ### 1kmメッシュ（手法B）
 1kmメッシュ人口とSCを同じ幅（σ = 10 / 30 / 50 km）のガウスカーネルで平滑化し、
 
@@ -33,6 +35,7 @@
 - 人口：令和2年国勢調査（総務省統計局）都道府県・市区町村別の主な結果、地域メッシュ統計（3次メッシュ）— [e-Stat](https://www.e-stat.go.jp/)
 - 行政区域：[国土数値情報 行政区域データ](https://nlftp.mlit.go.jp/ksj/)（国土交通省）を加工した [smartnews-smri/japan-topography](https://github.com/smartnews-smri/japan-topography)（2021年1月1日時点）を加工
 - 背景地図：[国土地理院 淡色地図](https://maps.gsi.go.jp/development/ichiran.html)
+- 道路・施設：[国土地理院 最適化ベクトルタイル](https://github.com/gsi-cyberjapan/optimal_bvmap)（試験公開。「高速道路等」は地図表現上の区分）
 
 ## データ再生成
 

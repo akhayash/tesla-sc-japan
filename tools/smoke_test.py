@@ -43,6 +43,12 @@ with sync_playwright() as p:
             page.click(".network-option.tesla")
             if not page.is_checked("#use-tesla"):
                 errors.append("both charger networks could be disabled")
+            page.click("#show-expressway")
+            if page.is_checked("#show-expressway") or "expressway=0" not in page.url:
+                errors.append("expressway visibility toggle did not update state")
+            page.click("#show-road-facilities")
+            if page.is_checked("#show-road-facilities") or "roadFacilities=0" not in page.url:
+                errors.append("road facility visibility toggle did not update state")
         if name == "a_flash_only" and (page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
             errors.append("FLASH-only state was not restored from URL")
         if name == "a_both" and (not page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):

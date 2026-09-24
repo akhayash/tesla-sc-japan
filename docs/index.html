@@ -106,6 +106,14 @@
           <option value="blank">白地図（拡大時に表示）</option>
         </select>
       </div>
+      <div class="ctl">
+        <label>交通レイヤ</label>
+        <div class="display-options">
+          <label class="check-row transport-road"><input type="checkbox" id="show-expressway" checked><span>高速道路等</span></label>
+          <label class="check-row transport-facility"><input type="checkbox" id="show-road-facilities" checked><span>IC/JCT・SA/PA</span></label>
+        </div>
+        <div class="field-note">国土地理院ベクトル。施設は拡大時、名称は選択時に表示</div>
+      </div>
     </section>
 
     <section class="panel-card result-guide">
@@ -141,7 +149,8 @@
             （取得日 <span id="fetched">-</span>）<br>
             人口：<a href="https://www.e-stat.go.jp/" target="_blank" rel="noopener">e-Stat</a> 令和2年国勢調査<br>
             境界：<a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noopener">国土数値情報</a>を加工<br>
-            背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>
+            背景地図：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a><br>
+            道路・施設：<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank" rel="noopener">国土地理院最適化ベクトルタイル</a>
           </p>
           <p><a href="about.html">詳細な出典・利用条件</a> · <a href="https://github.com/akhayash/tesla-sc-japan" target="_blank" rel="noopener">GitHub</a></p>
           <p class="muted">人口のみを需要の目安とした非公式の可視化です。Tesla, Inc. およびテンフィールズファクトリー株式会社とは関係がありません。</p>
@@ -157,6 +166,7 @@
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.0.38/dist.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
-  <script src="app.js?v=20260924-flash"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
+  <script src="app.js?v=20260924-expressway"></script>
 </body>
 </html>

@@ -49,6 +49,15 @@ with sync_playwright() as p:
             page.click("#show-road-facilities")
             if page.is_checked("#show-road-facilities") or "roadFacilities=0" not in page.url:
                 errors.append("road facility visibility toggle did not update state")
+            page.click("#show-road-facilities")
+            page.click('[data-facility="facilitySa"]')
+            if page.get_attribute('[data-facility="facilitySa"]', "aria-pressed") != "false" or "facilitySa=0" not in page.url:
+                errors.append("SA legend toggle did not update state")
+            page.click('[data-facility="facilitySa"]')
+            if page.get_attribute('[data-facility="facilitySa"]', "aria-pressed") != "true":
+                errors.append("SA legend toggle did not restore state")
+            if "充電器名" not in page.inner_text(".field-note"):
+                errors.append("zoom label guidance is missing")
         if name == "a_flash_only" and (page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
             errors.append("FLASH-only state was not restored from URL")
         if name == "a_both" and (not page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):

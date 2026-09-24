@@ -238,12 +238,30 @@ select:focus-visible, button:focus-visible, input:focus-visible, summary:focus-v
 .transport-key {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 9px;
+  gap: 4px;
   margin-top: 7px;
   color: #68707c;
   font-size: 9px;
 }
-.transport-key span::before {
+.transport-key button {
+  padding: 3px 6px;
+  color: inherit;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+  transition: opacity .15s ease, background .15s ease, border-color .15s ease;
+}
+.transport-key button:hover {
+  background: var(--surface-subtle);
+  border-color: #c7ccd3;
+}
+.transport-key button.off {
+  opacity: .38;
+  text-decoration: line-through;
+}
+.transport-key button::before {
   content: "";
   display: inline-block;
   width: 7px;

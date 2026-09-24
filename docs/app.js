@@ -55,11 +55,19 @@
       note: '区域内にあるSCの数です。',
     },
   };
+  const FACILITY_TYPES = [
+    { key: 'facilityIc', code: 2941 },
+    { key: 'facilityJct', code: 2942 },
+    { key: 'facilitySa', code: 2943 },
+    { key: 'facilityPa', code: 2944 },
+    { key: 'facilitySmart', code: 2945 },
+  ];
 
   const state = {
     mode: 'B', unit: 'pref', metric: 'p', weight: 't', status: 'o',
     layer: 'ratio', bw: '10', tesla: true, flash: false,
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
+    facilityIc: true, facilityJct: true, facilitySmart: true, facilitySa: true, facilityPa: true,
     rankMin: '0', base: 'pale',
   };
   readHash();
@@ -95,7 +103,12 @@
 
   const map0 = new maplibregl.Map({
     container: 'map',
-    style: { version: 8, sources: baseSources, layers: baseLayers },
+    style: {
+      version: 8,
+      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+      sources: baseSources,
+      layers: baseLayers,
+    },
     center: [137.5, 37.5], zoom: 4.6, minZoom: 3.5, maxZoom: 13,
     dragRotate: false, pitchWithRotate: false,
     attributionControl: {
@@ -139,6 +152,8 @@
       weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc'], bw: ['10', '30', '50'],
       rankMin: ['0', '50000', '100000', '300000'], showSc: ['0', '1'], popAlpha: ['0', '1'],
       tesla: ['0', '1'], flash: ['0', '1'], expressway: ['0', '1'], roadFacilities: ['0', '1'],
+      facilityIc: ['0', '1'], facilityJct: ['0', '1'], facilitySmart: ['0', '1'],
+      facilitySa: ['0', '1'], facilityPa: ['0', '1'],
       base: ['pale', 'std', 'photo', 'blank'],
     };
     const p = new URLSearchParams(location.hash.slice(1));
@@ -302,6 +317,27 @@
         'circle-stroke-width': ['match', ['get', 'code'], 2942, 1.8, 1.2],
       },
     });
+    map.addLayer({
+      id: 'road-facility-labels', type: 'symbol', source: 'road-facilities-data',
+      minzoom: 9,
+      filter: ['in', ['get', 'code'], ['literal', FACILITY_TYPES.map((f) => f.code)]],
+      layout: {
+        visibility: state.roadFacilities ? 'visible' : 'none',
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12],
+        'text-offset': [0, 1.15],
+        'text-anchor': 'top',
+        'text-padding': 3,
+        'text-optional': true,
+      },
+      paint: {
+        'text-color': '#111827',
+        'text-halo-color': 'rgba(255,255,255,.96)',
+        'text-halo-width': 2,
+        'text-halo-blur': 0.5,
+      },
+    });
     map.addSource('sc', { type: 'geojson', data: sc });
     map.addLayer({
       id: 'sc-points', type: 'circle', source: 'sc',
@@ -314,6 +350,25 @@
           ['==', ['get', 'network'], 'flash'], ['case', ['==', ['get', 'group'], 'open'], '#ffffff', '#0969da'],
           ['case', ['==', ['get', 'group'], 'open'], '#ffffff', '#e31937']],
         'circle-stroke-width': 1.5,
+      },
+    });
+    map.addLayer({
+      id: 'sc-labels', type: 'symbol', source: 'sc',
+      minzoom: 9,
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 9, 10, 12, 12],
+        'text-offset': [0, 1.25],
+        'text-anchor': 'top',
+        'text-padding': 3,
+        'text-optional': true,
+      },
+      paint: {
+        'text-color': '#111827',
+        'text-halo-color': 'rgba(255,255,255,.96)',
+        'text-halo-width': 2,
+        'text-halo-blur': 0.5,
       },
     });
 
@@ -402,7 +457,22 @@
     $('#rank-min').addEventListener('change', (e) => { state.rankMin = e.target.value; render(); });
     $('#show-sc').addEventListener('change', (e) => { state.showSc = e.target.checked; render(); });
     $('#show-expressway').addEventListener('change', (e) => { state.expressway = e.target.checked; render(); });
-    $('#show-road-facilities').addEventListener('change', (e) => { state.roadFacilities = e.target.checked; render(); });
+    $('#show-road-facilities').addEventListener('change', (e) => {
+      state.roadFacilities = e.target.checked;
+      if (state.roadFacilities && !FACILITY_TYPES.some((f) => state[f.key])) {
+        for (const f of FACILITY_TYPES) state[f.key] = true;
+      }
+      render();
+    });
+    document.querySelectorAll('[data-facility]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.facility;
+        state[key] = !state[key];
+        if (state[key]) state.roadFacilities = true;
+        else if (!FACILITY_TYPES.some((f) => state[f.key])) state.roadFacilities = false;
+        render();
+      });
+    });
     for (const key of ['tesla', 'flash']) {
       $(`#use-${key}`).addEventListener('change', (e) => {
         state[key] = e.target.checked;
@@ -434,6 +504,11 @@
     $('#show-sc').checked = state.showSc;
     $('#show-expressway').checked = state.expressway;
     $('#show-road-facilities').checked = state.roadFacilities;
+    document.querySelectorAll('[data-facility]').forEach((button) => {
+      const enabled = state[button.dataset.facility];
+      button.classList.toggle('off', !enabled);
+      button.setAttribute('aria-pressed', String(enabled));
+    });
     $('#use-tesla').checked = state.tesla;
     $('#use-flash').checked = state.flash;
     $('#basemap').value = state.base;
@@ -451,12 +526,20 @@
     if (!(state.tesla && state.flash)) {
       filters.push(['==', ['coalesce', ['get', 'network'], 'tesla'], state.flash ? 'flash' : 'tesla']);
     }
-    map.setFilter('sc-points', filters.length ? ['all', ...filters] : null);
-    map.setLayoutProperty('sc-points', 'visibility', state.showSc ? 'visible' : 'none');
+    const chargerFilter = filters.length ? ['all', ...filters] : null;
+    map.setFilter('sc-points', chargerFilter);
+    map.setFilter('sc-labels', chargerFilter);
+    for (const id of ['sc-points', 'sc-labels']) {
+      map.setLayoutProperty(id, 'visibility', state.showSc ? 'visible' : 'none');
+    }
     for (const id of ['expressway-casing', 'expressway-line']) {
       map.setLayoutProperty(id, 'visibility', state.expressway ? 'visible' : 'none');
     }
-    for (const id of ['road-service-areas', 'road-junctions']) {
+    const enabledCodes = FACILITY_TYPES.filter((f) => state[f.key]).map((f) => f.code);
+    map.setFilter('road-service-areas', ['in', ['get', 'code'], ['literal', enabledCodes.filter((c) => c === 2943 || c === 2944)]]);
+    map.setFilter('road-junctions', ['in', ['get', 'code'], ['literal', enabledCodes.filter((c) => c === 2941 || c === 2942 || c === 2945)]]);
+    map.setFilter('road-facility-labels', ['in', ['get', 'code'], ['literal', enabledCodes]]);
+    for (const id of ['road-service-areas', 'road-junctions', 'road-facility-labels']) {
       map.setLayoutProperty(id, 'visibility', state.roadFacilities ? 'visible' : 'none');
     }
     if (state.mode === 'A') renderA(); else renderB();

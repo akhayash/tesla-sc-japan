@@ -69,7 +69,7 @@ with sync_playwright() as p:
             page.click('[data-facility="facilitySa"]')
             if page.get_attribute('[data-facility="facilitySa"]', "aria-pressed") != "true":
                 errors.append("SA legend toggle did not restore state")
-            if "名称" not in page.inner_text(".key-row + .field-note"):
+            if "名称" not in page.inner_text(".key-row ~ .field-note"):
                 errors.append("zoom label guidance is missing")
             if page.locator("#power-key img").count() != 3:
                 errors.append("charger power tier legend is missing")

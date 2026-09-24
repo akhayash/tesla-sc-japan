@@ -334,6 +334,27 @@ select:focus-visible, button:focus-visible, input:focus-visible, summary:focus-v
 .poi-key .michinoeki::before { background: #9a5b13; }
 .poi-key .mall::before { background: #a21caf; }
 .poi-source { margin-top: 4px; font-size: 9px; }
+.brand-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: 6px 0 0 50px;
+  color: #68707c;
+  font-size: 9px;
+}
+.brand-key span { display: inline-flex; align-items: center; gap: 3px; }
+.brand-key i {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  color: #fff;
+  border-radius: 3px;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 800;
+}
+.brand-key i.other { background: #475569; }
 .field-note {
   margin-top: 6px;
   color: #9299a3;

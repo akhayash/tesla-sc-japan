@@ -591,6 +591,7 @@
     $('#ctl-weight').hidden = !weightUsed;
     $('#result-guide').hidden = state.mode === 'C' || (state.mode === 'B' && state.layer === 'none');
     syncPowerKey();
+    syncBrandKey();
   }
 
   function render() {
@@ -911,9 +912,20 @@
     mall: 'M5.5 8h13l1 12.5h-15zM8.7 8V6.6a3.3 3.3 0 0 1 6.6 0V8h-1.8V6.6a1.5 1.5 0 0 0-3 0V8z',
   };
   const OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+  const BRAND_STYLE = {
+    'セブン-イレブン': { color: '#e8730c', letter: '7', short: 'セブン' },
+    'ファミリーマート': { color: '#0a8f45', letter: 'F', short: 'ファミマ' },
+    'ローソン': { color: '#1f5fb8', letter: 'L', short: 'ローソン' },
+    'ミニストップ': { color: '#a88400', letter: 'M', short: 'ミニストップ' },
+    'デイリーヤマザキ': { color: '#b91c1c', letter: 'D', short: 'デイリー' },
+    'セイコーマート': { color: '#c2410c', letter: 'S', short: 'セイコーマート' },
+    NewDays: { color: '#0f766e', letter: 'N', short: 'NewDays' },
+    'ポプラ': { color: '#be123c', letter: 'P', short: 'ポプラ' },
+  };
+  const poiItems = [];
   let poiState = 'idle';
 
-  function drawPoiIcon(type, color) {
+  function drawPoiIcon(type, color, letter) {
     const ratio = 2, size = 17;
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = (size + 4) * ratio;
@@ -930,17 +942,19 @@
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    if (POI_GLYPH[type]) {
+    if (letter || !POI_GLYPH[type]) {
+      ctx.font = letter
+        ? 'bold 11px Inter, "Segoe UI", Arial, sans-serif'
+        : 'bold 10.5px "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(letter || '駅', 2 + size / 2, 2 + size / 2 + 0.5);
+    } else {
       ctx.save();
       ctx.translate(4, 4);
       ctx.scale(13 / 24, 13 / 24);
       ctx.fill(new Path2D(POI_GLYPH[type]), 'evenodd');
       ctx.restore();
-    } else {
-      ctx.font = 'bold 10.5px "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('駅', 2 + size / 2, 2 + size / 2 + 0.5);
     }
     return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
   }
@@ -950,15 +964,20 @@
     try {
       const d = await fetch('data/poi.json', { cache: 'no-cache' }).then((r) => r.json());
       const features = [];
-      for (const [lon, lat, b] of d.convenience) {
-        features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { t: 'convenience', n: b >= 0 ? d.brands[b] : 'コンビニ' } });
-      }
+      const add = (t, lon, lat, n, brand) => {
+        const i = poiItems.push({ t, n, coords: [lon, lat], brand }) - 1;
+        const style = brand && BRAND_STYLE[brand];
+        features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { t, n, i, k: style ? brand : '' } });
+      };
+      for (const [lon, lat, b] of d.convenience) add('convenience', lon, lat, b >= 0 ? d.brands[b] : 'コンビニ', b >= 0 ? d.brands[b] : null);
       for (const type of ['michinoeki', 'mall']) {
-        for (const [lon, lat, name] of d[type]) {
-          features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { t: type, n: name } });
-        }
+        for (const [lon, lat, name] of d[type]) add(type, lon, lat, name, null);
       }
       map.addSource('poi', { type: 'geojson', data: { type: 'FeatureCollection', features }, attribution: OSM_ATTR });
+      for (const [brand, s] of Object.entries(BRAND_STYLE)) {
+        map.addImage(`poi-convenience-${brand}`, drawPoiIcon('convenience', s.color, s.letter), { pixelRatio: 2 });
+      }
+      const brandMatch = (fallback, pick) => ['match', ['get', 'k'], ...Object.entries(BRAND_STYLE).flatMap(([brand, s]) => [brand, pick(brand, s)]), fallback];
       for (const t of POI_TYPES) {
         map.addImage(`poi-${t.type}`, drawPoiIcon(t.type, t.color), { pixelRatio: 2 });
         const dense = t.type === 'convenience';
@@ -968,7 +987,7 @@
           layout: { visibility: 'none' },
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], t.minzoom, dense ? 1.8 : 2.2, t.iconzoom, dense ? 3 : 3.6],
-            'circle-color': t.color,
+            'circle-color': dense ? brandMatch(t.color, (_, s) => s.color) : t.color,
             'circle-stroke-color': '#ffffff',
             'circle-stroke-width': 0.8,
           },
@@ -978,7 +997,7 @@
           filter: ['==', ['get', 't'], t.type],
           layout: {
             visibility: 'none',
-            'icon-image': `poi-${t.type}`,
+            'icon-image': dense ? brandMatch('poi-convenience', (brand) => `poi-convenience-${brand}`) : `poi-${t.type}`,
             'icon-size': ['interpolate', ['linear'], ['zoom'], t.iconzoom, 0.8, 13, 1],
             'icon-allow-overlap': !dense,
             'icon-padding': 1,
@@ -991,9 +1010,9 @@
           });
           map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; $('#tooltip').hidden = true; });
           map.on('click', id, (e) => {
-            const p = e.features[0].properties;
-            popup.setLngLat(e.features[0].geometry.coordinates).setHTML(
-              `<h3>${esc(p.n)}</h3><div class="muted">${t.label}</div><div class="muted poi-source">出典：${OSM_ATTR}</div>`).addTo(map);
+            const item = poiItems[e.features[0].properties.i];
+            $('#tooltip').hidden = true;
+            if (item) popup.setLngLat(item.coords).setHTML(poiPopupHtml(e.features[0].properties.i)).addTo(map);
           });
         }
       }
@@ -1031,6 +1050,49 @@
     map.setFilter('poi-labels', ['in', ['get', 't'], ['literal', enabled.map((t) => t.type).filter((type) => type !== 'convenience')]]);
   }
 
+  function syncBrandKey() {
+    const key = $('#brand-key');
+    key.hidden = !state.poiConvenience;
+    if (key.childElementCount) return;
+    key.innerHTML = Object.values(BRAND_STYLE).slice(0, 6)
+      .map((s) => `<span><i style="background:${s.color}">${s.letter}</i>${s.short}</span>`).join('') +
+      '<span><i class="other"></i>その他</span>';
+  }
+
+  function poiPopupHtml(index) {
+    const item = poiItems[index];
+    const type = POI_TYPES.find((t) => t.type === item.t);
+    const style = item.brand && BRAND_STYLE[item.brand];
+    return `<div class="charger-popup poi-popup">
+      <h3>${esc(item.n)}</h3>
+      <div class="muted">${type.label}</div>
+      ${aerialHtml(`poi:${index}`, item.coords, { color: style?.color || type.color })}
+      ${linksHtml(placeLinks(item.coords))}
+      <div class="muted poi-source">施設情報：${OSM_ATTR}</div>
+    </div>`;
+  }
+
+  function viewerTarget(id) {
+    if (String(id).startsWith('poi:')) {
+      const item = poiItems[Number(String(id).slice(4))];
+      if (!item) return null;
+      const type = POI_TYPES.find((t) => t.type === item.t);
+      const style = item.brand && BRAND_STYLE[item.brand];
+      return {
+        title: item.n, sub: type.label, coords: item.coords, color: style?.color || type.color,
+        note: '位置はOpenStreetMapの登録位置です', links: placeLinks(item.coords),
+      };
+    }
+    const c = chargerById.get(String(id));
+    if (!c) return null;
+    const p = c.props, flash = p.network === 'flash';
+    return {
+      title: p.name || '', sub: [flash ? 'FLASH' : 'テスラ SC', p.facility].filter(Boolean).join(' · '),
+      coords: c.coords, color: NETWORK_COLOR[flash ? 'flash' : 'tesla'],
+      note: flash ? '位置はFLASH公式の住所から推定しています' : '', links: chargerLinks(p, c.coords),
+    };
+  }
+
   function syncPowerKey() {
     const network = state.tesla ? 'tesla' : 'flash';
     if ($('#power-key').dataset.network === network) return;
@@ -1041,13 +1103,13 @@
 
   let viewerMap = null, viewerMarker = null, viewerReturnFocus = null;
   function openAerialViewer(id) {
-    const c = chargerById.get(String(id));
-    if (!c) return;
-    const p = c.props, flash = p.network === 'flash';
-    $('#viewer-title').textContent = p.name || '';
-    $('#viewer-sub').textContent = [flash ? 'FLASH' : 'テスラ SC', p.facility].filter(Boolean).join(' · ');
-    $('#viewer-note').textContent = flash ? '位置はFLASH公式の住所から推定しています' : '';
-    $('#viewer-links').innerHTML = linksHtml(chargerLinks(p, c.coords));
+    const target = viewerTarget(id);
+    if (!target) return;
+    $('#viewer-title').textContent = target.title;
+    $('#viewer-sub').textContent = target.sub;
+    $('#viewer-note').textContent = target.note;
+    $('#viewer-links').innerHTML = linksHtml(target.links);
+    const c = { coords: target.coords };
     viewerReturnFocus = document.activeElement;
     $('#aerial-viewer').hidden = false;
     if (!viewerMap) {
@@ -1069,7 +1131,7 @@
       viewerMap.jumpTo({ center: c.coords, zoom: 18 });
     }
     viewerMarker?.remove();
-    viewerMarker = new maplibregl.Marker({ color: NETWORK_COLOR[flash ? 'flash' : 'tesla'] }).setLngLat(c.coords).addTo(viewerMap);
+    viewerMarker = new maplibregl.Marker({ color: target.color }).setLngLat(c.coords).addTo(viewerMap);
     $('#viewer-close').focus();
   }
   function closeAerialViewer() {
@@ -1077,13 +1139,17 @@
     viewerReturnFocus?.focus?.();
   }
 
-  function chargerLinks(p, coords) {
+  function placeLinks(coords) {
     const [lon, lat] = coords;
     return {
       street: `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}`,
-      maps: p.network === 'flash' && /^https:\/\//.test(p.url || '') ? p.url
-        : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+      maps: `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
     };
+  }
+  function chargerLinks(p, coords) {
+    const links = placeLinks(coords);
+    if (p.network === 'flash' && /^https:\/\//.test(p.url || '')) links.maps = p.url;
+    return links;
   }
   function linksHtml(links) {
     return `<div class="popup-links">
@@ -1092,7 +1158,7 @@
       </div>`;
   }
 
-  function aerialHtml(id, coords, approximate) {
+  function aerialHtml(id, coords, { note = '', color } = {}) {
     const [lon, lat] = coords;
     const n = 2 ** AERIAL_ZOOM;
     const fx = ((lon + 180) / 360) * n;
@@ -1108,9 +1174,9 @@
     }
     return `<figure class="aerial" data-aerial-id="${esc(id)}" role="button" tabindex="0" aria-label="航空写真を大きく表示">
         <div class="aerial-tiles" style="left:${left}px;top:${top}px">${tiles.join('')}</div>
-        <span class="aerial-pin"></span>
+        <span class="aerial-pin"${color ? ` style="background:${esc(color)}"` : ''}></span>
         <span class="aerial-expand" aria-hidden="true">⤢ 拡大</span>
-        <figcaption>${approximate ? '位置は住所から推定 · ' : ''}航空写真：国土地理院</figcaption>
+        <figcaption>${note ? `${esc(note)} · ` : ''}航空写真：国土地理院</figcaption>
       </figure>`;
   }
 
@@ -1150,7 +1216,7 @@
     return `<div class="charger-popup ${flash ? 'flash' : 'tesla'}">
       <h3>${esc(p.name)}</h3>
       <div class="muted">${sub}</div>
-      ${aerialHtml(p.id, coords, flash)}
+      ${aerialHtml(p.id, coords, { note: flash ? '位置は住所から推定' : '', color: NETWORK_COLOR[flash ? 'flash' : 'tesla'] })}
       ${linksHtml(chargerLinks(p, coords))}
       <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
       <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>

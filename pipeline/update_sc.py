@@ -16,6 +16,7 @@ import sys
 from common import OUT
 
 KEYS = ("network", "name", "status", "stalls", "stalls_est")
+SPEC_KEYS = ("kw", "hours", "generations", "plugs", "amenities", "location_note", "output", "connectors")
 
 
 def load(path) -> dict:
@@ -40,6 +41,8 @@ def diff(old: dict, new: dict) -> list[str]:
                 f"~ [{b.get('network', 'tesla')}] {b['name']}: "
                 f"{a['status']}/{a['stalls']} -> {b['status']}/{b['stalls']}"
             )
+        elif any(a.get(k) != b.get(k) for k in SPEC_KEYS):
+            lines.append(f"~ [{b.get('network', 'tesla')}] {b['name']}: charger details updated")
     return sorted(lines)
 
 

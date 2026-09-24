@@ -12,6 +12,17 @@ URL = "https://supercharge.info/service/supercharge/allSites"
 
 OPEN = {"OPEN", "EXPANDING", "CLOSED_TEMP"}
 PLANNED = {"CONSTRUCTION", "PERMIT", "PLAN", "VOTING"}
+STALL_GENERATIONS = ("v2", "v3", "v4", "urban")
+STALL_FEATURES = {"accessible": "accessible", "trailerFriendly": "trailer"}
+
+
+def counts(raw: dict | None, keys) -> dict[str, int]:
+    raw = raw or {}
+    return {k: int(raw[k]) for k in keys if str(raw.get(k) or "").isdigit() and int(raw[k]) > 0}
+
+
+def plug_counts(raw: dict | None) -> dict[str, int]:
+    return {k: int(v) for k, v in (raw or {}).items() if str(v or "").isdigit() and int(v) > 0}
 
 
 def previous_flash() -> tuple[list[dict] | None, str | None]:
@@ -37,6 +48,8 @@ def main() -> None:
             continue
         lon, lat = s["gps"]["longitude"], s["gps"]["latitude"]
         x, y = to_lcc_km(lon, lat)
+        stalls = s.get("stalls") or {}
+        amenities = {name: int(stalls[key]) for key, name in STALL_FEATURES.items() if str(stalls.get(key) or "").isdigit() and int(stalls[key]) > 0}
         features.append(
             {
                 "type": "Feature",
@@ -51,6 +64,11 @@ def main() -> None:
                     "stalls": int(s.get("stallCount") or 0),
                     "kw": int(s["powerKilowatt"]) if str(s.get("powerKilowatt") or "").isdigit() else None,
                     "opened": s["dateOpened"] if re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(s.get("dateOpened") or "")) else None,
+                    "hours": s.get("hours") or None,
+                    "generations": counts(stalls, STALL_GENERATIONS),
+                    "plugs": plug_counts(s.get("plugs")),
+                    "amenities": amenities,
+                    "location_note": s.get("addressNotes") or None,
                     "x": round(float(x), 3),
                     "y": round(float(y), 3),
                 },

@@ -33,13 +33,13 @@
     <thead><tr><th>データ</th><th>提供元・時点</th><th>利用条件</th><th>本サイトでの加工</th></tr></thead>
     <tbody>
       <tr>
-        <td>スーパーチャージャー所在地<br>（位置・ストール数・状態・開設日）</td>
+        <td>スーパーチャージャー所在地<br>（位置・ストール数・状態・開設日・出力・充電器世代・コネクター・設備）</td>
         <td><a href="https://supercharge.info/" target="_blank" rel="noopener">supercharge.info</a>（有志コミュニティ）<br>取得日：<span id="fetched">-</span></td>
         <td>公開データを参照。Teslaによる提供・検証ではなく、正確性は保証されません（<a href="https://supercharge.info/about" target="_blank" rel="noopener">同サイトの説明</a>）。</td>
         <td>日本のサイトを抽出。閉鎖済みを除外し「営業中」「計画・建設中（建設中・許認可中・計画・候補）」に区分。ストール数未定の計画サイトは営業中サイトの中央値で推定。</td>
       </tr>
       <tr>
-        <td>FLASH NACS対応急速充電器<br>（住所・対応規格・基数・状態）</td>
+        <td>FLASH NACS対応急速充電器<br>（住所・対応規格・基数・出力・状態）</td>
         <td><a href="https://ev-charger.jp/area/" target="_blank" rel="noopener">FLASH公式 設置場所一覧</a>（テンフィールズファクトリー株式会社）<br>取得日：<span id="fetched-flash">-</span></td>
         <td>公開されている設置場所一覧を参照。利用前にFLASH公式の最新情報を確認してください。</td>
         <td>NACS対応拠点のみ抽出。住所を<a href="https://maps.gsi.go.jp/development/geocoding.html" target="_blank" rel="noopener">国土地理院 位置検索</a>で座標化。「調整中」は計画中として区分。CHAdeMO/NACS共用器は同時充電できないため1基を1ストールとして数え、複数基の明記がある場合はNACS対応基数を使用。</td>

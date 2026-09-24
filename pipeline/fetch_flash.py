@@ -115,6 +115,8 @@ def fetch(previous: list[dict] | None = None, previous_fetched: str | None = Non
                     "stalls": nacs_stalls(output),
                     "stalls_est": False,
                     "kw": max_kw(output),
+                    "output": output or None,
+                    "connectors": [t for t in (item.get("types") or []) if t in ("NACS", "CHAdeMO")],
                     "opened": None,
                     "hours": item.get("hours"),
                     "url": item.get("map"),

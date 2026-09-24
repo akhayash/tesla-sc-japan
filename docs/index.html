@@ -7,7 +7,7 @@
   <meta name="description" content="日本のテスラ スーパーチャージャーとFLASH NACS急速充電器を人口分布と重ね、充電拠点が少ない地域を可視化します。">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23e31937'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=20260924-panel-collapse">
+  <link rel="stylesheet" href="style.css?v=20260924-charger-specs">
 </head>
 <body>
   <aside id="panel">
@@ -85,6 +85,12 @@
             <span><strong>FLASH</strong><small>NACS対応</small></span>
           </label>
         </div>
+        <div class="power-key" aria-label="出力の段階">
+          <span><span class="bolts tier-3"><i class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i><i class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i><i class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i></span>200kW以上</span>
+          <span><span class="bolts tier-2"><i class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i><i class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i></span>100〜199kW</span>
+          <span><span class="bolts tier-1"><i class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg></i></span>100kW未満</span>
+        </div>
+        <div class="field-note">高出力の拠点ほど地図上の点を大きく表示</div>
       </div>
       <div class="ctl">
         <label>対象</label>
@@ -175,6 +181,6 @@
   <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.0.38/dist.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
-  <script src="app.js?v=20260924-panel-collapse"></script>
+  <script src="app.js?v=20260924-charger-specs"></script>
 </body>
 </html>

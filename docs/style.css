@@ -447,6 +447,37 @@ footer { padding: 2px 2px 0; }
 .maplibregl-popup-content table { width: 100%; border-collapse: collapse; }
 .maplibregl-popup-content td { padding: 2px 4px; }
 .maplibregl-popup-content td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.maplibregl-popup-content td:first-child { color: #68707c; white-space: nowrap; vertical-align: top; }
+#summary:empty { display: none; }
+.charger-popup .muted { color: #68707c; }
+.spec-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 6px;
+  padding: 6px 8px;
+  background: #f8f9fb;
+  border: 1px solid #e1e5ea;
+  border-radius: 8px;
+}
+.spec-badges .kw { font-size: 12px; font-weight: 700; }
+.bolts { display: inline-flex; gap: 1px; }
+.bolts i { display: inline-flex; width: 13px; height: 13px; }
+.bolts svg { width: 100%; height: 100%; fill: #d0d5dc; }
+.bolts i.on svg { fill: #f59e0b; }
+.charger-popup.tesla .bolts i.on svg { fill: #e31937; }
+.charger-popup.flash .bolts i.on svg { fill: #2563eb; }
+.power-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+  color: #68707c;
+  font-size: 9px;
+}
+.power-key > span { display: inline-flex; align-items: center; gap: 4px; }
+.power-key .bolts i { width: 10px; height: 10px; }
+.power-key .bolts i.on svg { fill: #22262b; }
 
 @media (max-width: 900px) {
   :root { --panel-width: 370px; }

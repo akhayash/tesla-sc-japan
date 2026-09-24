@@ -76,6 +76,7 @@
   const nf = new Intl.NumberFormat('ja-JP');
   let stats, topo, sc, roadFacilityData, meshMeta, mesh, map, overlay, popup;
   const unitGeo = {};
+  const chargerById = new Map();
   const scDensityCache = new Map();
   let bitmap = null;
 
@@ -131,6 +132,7 @@
     new Promise((res) => map.on('load', res)),
   ]).then(([s, t, c, rf, mm, buf]) => {
     stats = s; topo = t; sc = c; roadFacilityData = rf; meshMeta = mm;
+    for (const f of sc.features) chargerById.set(f.properties.id, f.properties);
     mesh = parseMesh(buf, mm);
     for (const k of ['pref', 'muni_city', 'muni_ward']) {
       unitGeo[k] = topojson.feature(topo, topo.objects[k]);
@@ -339,10 +341,11 @@
       },
     });
     map.addSource('sc', { type: 'geojson', data: sc });
+    const powerScale = ['step', ['coalesce', ['get', 'kw'], 0], 0.8, 100, 1, 200, 1.25];
     map.addLayer({
       id: 'sc-points', type: 'circle', source: 'sc',
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 10, 7],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['*', 3, powerScale], 10, ['*', 7, powerScale]],
         'circle-color': ['case',
           ['==', ['get', 'network'], 'flash'], ['case', ['==', ['get', 'group'], 'open'], '#0969da', '#ffffff'],
           ['case', ['==', ['get', 'group'], 'open'], '#e31937', '#ffffff']],
@@ -399,18 +402,8 @@
     map.on('mouseenter', 'sc-points', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'sc-points', () => { map.getCanvas().style.cursor = ''; });
     map.on('click', 'sc-points', (e) => {
-      const p = e.features[0].properties;
-      const network = p.network === 'flash' ? 'FLASH' : 'テスラ SC';
-      const status = { OPEN: '営業中', ADJUSTING: '調整中', EXPANDING: '営業中（拡張中）', CLOSED_TEMP: '一時休止', CONSTRUCTION: '建設中', PERMIT: '許認可中', PLAN: '計画中', VOTING: '候補' }[p.status] || p.status;
-      popup.setLngLat(e.lngLat).setHTML(
-        `<h3>${esc(p.name)}</h3><div>${network}</div>${p.facility && p.facility !== 'null' ? `<div>${esc(p.facility)}</div>` : ''}
-        <table>
-          <tr><td>状態</td><td>${status}</td></tr>
-          <tr><td>ストール数</td><td>${p.stalls_est ? `${p.stalls}（推定）` : p.stalls}</td></tr>
-          ${p.kw && p.kw !== 'null' ? `<tr><td>最大出力</td><td>${esc(p.kw)} kW</td></tr>` : ''}
-          ${p.opened && p.opened !== 'null' ? `<tr><td>開設日</td><td>${esc(p.opened)}</td></tr>` : ''}
-          ${p.hours && p.hours !== 'null' ? `<tr><td>営業時間</td><td>${esc(p.hours)}</td></tr>` : ''}
-        </table>`).addTo(map);
+      const p = chargerById.get(e.features[0].properties.id) || e.features[0].properties;
+      popup.setLngLat(e.lngLat).setHTML(chargerPopupHtml(p)).addTo(map);
     });
     for (const id of ['road-service-areas', 'road-junctions']) {
       map.on('mousemove', id, (e) => {
@@ -768,6 +761,52 @@
   }
 
   // ---------- helpers ----------
+  const BOLT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 14h7l-1.5 8L19 10h-7z"/></svg>';
+  const STATUS_LABEL = { OPEN: '営業中', ADJUSTING: '調整中', EXPANDING: '営業中（拡張中）', CLOSED_TEMP: '一時休止', CONSTRUCTION: '建設中', PERMIT: '許認可中', PLAN: '計画中', VOTING: '候補' };
+  const GENERATION_LABEL = { v2: 'V2', v3: 'V3', v4: 'V4', urban: 'Urban' };
+  const PLUG_LABEL = { tpc: 'TPC', nacs: 'NACS' };
+
+  function powerTier(kw) {
+    if (!kw) return 0;
+    return kw >= 200 ? 3 : kw >= 100 ? 2 : 1;
+  }
+  function bolts(tier) {
+    return `<span class="bolts tier-${tier}" title="${['出力不明', '100kW未満', '100〜199kW', '200kW以上'][tier]}">${
+      [1, 2, 3].map((i) => `<i class="${i <= tier ? 'on' : ''}">${BOLT_SVG}</i>`).join('')}</span>`;
+  }
+  function countList(obj, labels) {
+    return Object.entries(obj || {}).map(([k, v]) => `${esc(labels[k] || k.toUpperCase())} ×${v}`).join(' · ');
+  }
+  function chargerPopupHtml(p) {
+    const flash = p.network === 'flash';
+    const kw = Number(p.kw) || null;
+    const tier = powerTier(kw);
+    const status = STATUS_LABEL[p.status] || p.status;
+    const rows = [['状態', esc(status)], ['ストール数', p.stalls_est ? `${p.stalls}（推定）` : `${p.stalls}`]];
+    if (flash) {
+      if (p.output && /基/.test(p.output)) rows.push(['出力構成', esc(p.output)]);
+      const connectors = (p.connectors || []).join(' / ');
+      if (connectors) rows.push(['コネクター', `${esc(connectors)}${(p.connectors || []).length > 1 ? '<br><span class="muted">同じ充電器で同時利用不可</span>' : ''}`]);
+    } else {
+      if (Object.keys(p.generations || {}).length) rows.push(['充電器世代', countList(p.generations, GENERATION_LABEL)]);
+      if (Object.keys(p.plugs || {}).length) rows.push(['コネクター', countList(p.plugs, PLUG_LABEL)]);
+      const amenities = [];
+      if (p.amenities?.accessible) amenities.push(`車いす対応 ${p.amenities.accessible}台`);
+      if (p.amenities?.trailer) amenities.push(`トレーラー可 ${p.amenities.trailer}台`);
+      if (amenities.length) rows.push(['設備', amenities.join(' · ')]);
+      if (p.location_note) rows.push(['設置場所', esc(p.location_note)]);
+    }
+    if (p.opened) rows.push(['開設日', esc(p.opened)]);
+    if (p.hours) rows.push(['営業時間', esc(p.hours)]);
+    const sub = [flash ? 'FLASH' : 'テスラ SC', p.facility].filter(Boolean).map(esc).join(' · ');
+    return `<div class="charger-popup ${flash ? 'flash' : 'tesla'}">
+      <h3>${esc(p.name)}</h3>
+      <div class="muted">${sub}</div>
+      <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
+      <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
+    </div>`;
+  }
+
   function legend(title, rows) {
     $('#legend').innerHTML = `<div class="title">${title}</div>` +
       rows.map((r) => `<div class="row"><span class="sw" style="background:${r.css}"></span>${r.label}</div>`).join('');

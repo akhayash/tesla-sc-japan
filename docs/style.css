@@ -343,16 +343,7 @@ select:focus-visible, button:focus-visible, input:focus-visible, summary:focus-v
   font-size: 9px;
 }
 .brand-key span { display: inline-flex; align-items: center; gap: 3px; }
-.brand-key img {
-  display: block;
-  height: 12px;
-  width: auto;
-  max-width: 64px;
-  padding: 1px 2px;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-}
+.brand-key img { display: block; width: 14px; height: 14px; }
 .poi-logo { display: block; height: 18px; width: auto; max-width: 120px; margin-bottom: 6px; }
 .brand-key i {
   display: inline-grid;

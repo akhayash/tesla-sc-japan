@@ -912,15 +912,16 @@
     mall: 'M5.5 8h13l1 12.5h-15zM8.7 8V6.6a3.3 3.3 0 0 1 6.6 0V8h-1.8V6.6a1.5 1.5 0 0 0-3 0V8z',
   };
   const OSM_ATTR = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+  // mark: crop box [x, y, w, h] (fractions) of the text-free symbol inside the logo; null → brand-colour tile.
   const BRAND_STYLE = {
-    'セブン-イレブン': { color: '#e8730c', letter: '7', short: 'セブン', logo: 'seven-eleven' },
-    'ファミリーマート': { color: '#0a8f45', letter: 'F', short: 'ファミマ', logo: 'familymart' },
-    'ローソン': { color: '#1f5fb8', letter: 'L', short: 'ローソン', logo: 'lawson' },
-    'ミニストップ': { color: '#a88400', letter: 'M', short: 'ミニストップ', logo: 'ministop' },
-    'デイリーヤマザキ': { color: '#b91c1c', letter: 'D', short: 'デイリー', logo: 'daily-yamazaki' },
-    'セイコーマート': { color: '#c2410c', letter: 'S', short: 'セイコーマート', logo: 'seicomart' },
-    NewDays: { color: '#79a91b', letter: 'N', short: 'NewDays', logo: 'newdays' },
-    'ポプラ': { color: '#be123c', letter: 'P', short: 'ポプラ', logo: 'poplar' },
+    'セブン-イレブン': { color: '#e8730c', letter: '7', short: 'セブン', logo: 'seven-eleven', mark: [0, 0, 1, 1] },
+    'ファミリーマート': { color: '#0a8f45', letter: 'F', short: 'ファミマ', logo: 'familymart', mark: [0, 0, 0.176, 1] },
+    'ローソン': { color: '#1f5fb8', letter: 'L', short: 'ローソン', logo: 'lawson', mark: null },
+    'ミニストップ': { color: '#1e3a8a', letter: 'M', short: 'ミニストップ', logo: 'ministop', mark: [0, 0, 1, 1] },
+    'デイリーヤマザキ': { color: '#d7261e', letter: 'D', short: 'デイリー', logo: 'daily-yamazaki', mark: null },
+    'セイコーマート': { color: '#f08300', letter: 'S', short: 'セイコーマート', logo: 'seicomart', mark: null },
+    NewDays: { color: '#79a91b', letter: 'N', short: 'NewDays', logo: 'newdays', mark: null },
+    'ポプラ': { color: '#be123c', letter: 'P', short: 'ポプラ', logo: 'poplar', mark: [0, 0, 0.233, 0.72] },
   };
   const brandLogoUrl = (s) => `img/brands/${s.logo}.png`;
   const poiItems = [];
@@ -957,24 +958,23 @@
       ctx.fill(new Path2D(POI_GLYPH[type]), 'evenodd');
       ctx.restore();
     }
-    return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    return canvas;
   }
+  const canvasData = (canvas) => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
 
-  // Logos are drawn unaltered (original aspect ratio and colours) on a white badge.
-  function drawLogoBadge(img) {
-    const ratio = 2, aspect = img.naturalWidth / img.naturalHeight;
-    let logoH = aspect < 1.6 ? 13 : 9;
-    let logoW = logoH * aspect;
-    if (logoW > 56) { logoW = 56; logoH = logoW / aspect; }
-    const padX = aspect < 1.6 ? 2 : 4, height = 17;
-    const width = Math.max(height, logoW + padX * 2);
+  // Text-free brand marks: the symbol part of the logo (original colours, uncropped aspect) on a white square badge.
+  function drawMarkBadge(img, [fx, fy, fw, fh]) {
+    const ratio = 2, size = 18, box = 14;
+    const sx = img.naturalWidth * fx, sy = img.naturalHeight * fy;
+    const sw = img.naturalWidth * fw, sh = img.naturalHeight * fh;
+    const aspect = sw / sh;
+    const w = aspect >= 1 ? box : box * aspect, h = aspect >= 1 ? box / aspect : box;
     const canvas = document.createElement('canvas');
-    canvas.width = (width + 4) * ratio;
-    canvas.height = (height + 4) * ratio;
+    canvas.width = canvas.height = (size + 4) * ratio;
     const ctx = canvas.getContext('2d');
     ctx.scale(ratio, ratio);
     ctx.beginPath();
-    ctx.roundRect(2, 2, width, height, 4);
+    ctx.roundRect(2, 2, size, size, 4);
     ctx.shadowColor = 'rgba(0,0,0,.35)';
     ctx.shadowBlur = 2;
     ctx.fillStyle = '#ffffff';
@@ -984,8 +984,11 @@
     ctx.strokeStyle = 'rgba(15,23,42,.18)';
     ctx.stroke();
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, 2 + (width - logoW) / 2, 2 + (height - logoH) / 2, logoW, logoH);
-    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, sx, sy, sw, sh, 2 + (size - w) / 2, 2 + (size - h) / 2, w, h);
+    return canvas;
+  }
+  function brandIcon(s) {
+    return s.mark && s.img ? drawMarkBadge(s.img, s.mark) : drawPoiIcon('convenience', s.color);
   }
   async function loadBrandLogos() {
     await Promise.all(Object.values(BRAND_STYLE).map(async (s) => {
@@ -1016,12 +1019,11 @@
       }
       map.addSource('poi', { type: 'geojson', data: { type: 'FeatureCollection', features }, attribution: OSM_ATTR });
       for (const [brand, s] of Object.entries(BRAND_STYLE)) {
-        const icon = s.img ? drawLogoBadge(s.img) : drawPoiIcon('convenience', s.color, s.letter);
-        map.addImage(`poi-convenience-${brand}`, icon, { pixelRatio: 2 });
+        map.addImage(`poi-convenience-${brand}`, canvasData(brandIcon(s)), { pixelRatio: 2 });
       }
       const brandMatch = (fallback, pick) => ['match', ['get', 'k'], ...Object.entries(BRAND_STYLE).flatMap(([brand, s]) => [brand, pick(brand, s)]), fallback];
       for (const t of POI_TYPES) {
-        map.addImage(`poi-${t.type}`, drawPoiIcon(t.type, t.color), { pixelRatio: 2 });
+        map.addImage(`poi-${t.type}`, canvasData(drawPoiIcon(t.type, t.color)), { pixelRatio: 2 });
         const dense = t.type === 'convenience';
         map.addLayer({
           id: `poi-${t.type}-dot`, type: 'circle', source: 'poi', minzoom: t.minzoom, maxzoom: t.iconzoom,
@@ -1074,6 +1076,7 @@
       }, 'road-service-areas');
       poiState = 'ready';
       renderPoi();
+      syncBrandKey();
     } catch (err) {
       poiState = 'idle';
       console.error(err);
@@ -1095,10 +1098,10 @@
   function syncBrandKey() {
     const key = $('#brand-key');
     key.hidden = !state.poiConvenience;
-    if (key.childElementCount) return;
+    if (key.childElementCount || poiState !== 'ready') return;
     key.innerHTML = Object.values(BRAND_STYLE).slice(0, 6)
-      .map((s) => `<span title="${esc(s.short)}"><img src="${brandLogoUrl(s)}" alt="${esc(s.short)}"></span>`).join('') +
-      '<span><i class="other"></i>その他</span>';
+      .map((s) => `<span><img src="${brandIcon(s).toDataURL()}" alt="">${esc(s.short)}</span>`).join('') +
+      `<span><img src="${drawPoiIcon('convenience', '#475569').toDataURL()}" alt="">その他</span>`;
   }
 
   function poiPopupHtml(index) {

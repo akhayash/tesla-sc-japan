@@ -7,7 +7,7 @@
   <meta name="description" content="日本のテスラ スーパーチャージャーとFLASH NACS急速充電器を人口分布と重ね、充電拠点が少ない地域を可視化します。">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=20260924-power-icons">
+  <link rel="stylesheet" href="style.css?v=20260924-aerial-viewer">
 </head>
 <body>
   <aside id="panel">
@@ -171,12 +171,28 @@
   <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="true" aria-label="サイドパネルを閉じる"></button>
   <main id="map"></main>
   <div id="tooltip" hidden></div>
+  <div id="aerial-viewer" hidden role="dialog" aria-modal="true" aria-labelledby="viewer-title">
+    <div class="viewer-panel">
+      <header class="viewer-head">
+        <div>
+          <strong id="viewer-title"></strong>
+          <span id="viewer-sub"></span>
+        </div>
+        <button type="button" id="viewer-close" aria-label="航空写真を閉じる">×</button>
+      </header>
+      <div id="viewer-map"></div>
+      <footer class="viewer-foot">
+        <span id="viewer-note"></span>
+        <div id="viewer-links"></div>
+      </footer>
+    </div>
+  </div>
   <div id="loading">読み込み中…</div>
 
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.0.38/dist.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
-  <script src="app.js?v=20260924-power-icons"></script>
+  <script src="app.js?v=20260924-aerial-viewer"></script>
 </body>
 </html>

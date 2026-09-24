@@ -132,7 +132,7 @@
     new Promise((res) => map.on('load', res)),
   ]).then(([s, t, c, rf, mm, buf]) => {
     stats = s; topo = t; sc = c; roadFacilityData = rf; meshMeta = mm;
-    for (const f of sc.features) chargerById.set(f.properties.id, { props: f.properties, coords: f.geometry.coordinates });
+    for (const f of sc.features) chargerById.set(String(f.properties.id), { props: f.properties, coords: f.geometry.coordinates });
     mesh = parseMesh(buf, mm);
     for (const k of ['pref', 'muni_city', 'muni_ward']) {
       unitGeo[k] = topojson.feature(topo, topo.objects[k]);
@@ -419,7 +419,7 @@
       map.on('mouseenter', id, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
       map.on('click', id, (e) => {
-        const c = chargerById.get(e.features[0].properties.id);
+        const c = chargerById.get(String(e.features[0].properties.id));
         if (!c) return;
         popup.setLngLat(c.coords).setHTML(chargerPopupHtml(c.props, c.coords)).addTo(map);
       });
@@ -457,6 +457,20 @@
 
   // ---------- UI ----------
   function bindUi() {
+    document.addEventListener('click', (e) => {
+      const fig = e.target.closest('[data-aerial-id]');
+      if (fig) openAerialViewer(fig.dataset.aerialId);
+    });
+    document.addEventListener('keydown', (e) => {
+      const fig = e.target.closest?.('[data-aerial-id]');
+      if (fig && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        openAerialViewer(fig.dataset.aerialId);
+      }
+      if (e.key === 'Escape' && !$('#aerial-viewer').hidden) closeAerialViewer();
+    });
+    $('#viewer-close').addEventListener('click', closeAerialViewer);
+    $('#aerial-viewer').addEventListener('click', (e) => { if (e.target.id === 'aerial-viewer') closeAerialViewer(); });
     $('#panel-toggle').addEventListener('click', () => {
       const collapsed = document.body.classList.toggle('panel-collapsed');
       $('#panel-toggle').setAttribute('aria-expanded', String(!collapsed));
@@ -850,7 +864,60 @@
       .map(([tier, label]) => `<span><img src="${drawChargerIcon(network, tier, false).toDataURL()}" alt="" height="14">${label}</span>`).join('');
   }
 
-  function aerialHtml(coords, approximate, mapsUrl) {
+  let viewerMap = null, viewerMarker = null, viewerReturnFocus = null;
+  function openAerialViewer(id) {
+    const c = chargerById.get(String(id));
+    if (!c) return;
+    const p = c.props, flash = p.network === 'flash';
+    $('#viewer-title').textContent = p.name || '';
+    $('#viewer-sub').textContent = [flash ? 'FLASH' : 'テスラ SC', p.facility].filter(Boolean).join(' · ');
+    $('#viewer-note').textContent = flash ? '位置はFLASH公式の住所から推定しています' : '';
+    $('#viewer-links').innerHTML = linksHtml(chargerLinks(p, c.coords));
+    viewerReturnFocus = document.activeElement;
+    $('#aerial-viewer').hidden = false;
+    if (!viewerMap) {
+      viewerMap = new maplibregl.Map({
+        container: 'viewer-map',
+        style: {
+          version: 8,
+          sources: { photo: { type: 'raster', tiles: [BASEMAPS.photo.tiles], tileSize: 256, maxzoom: 18, attribution: GSI_ATTR } },
+          layers: [{ id: 'photo', type: 'raster', source: 'photo' }],
+        },
+        center: c.coords, zoom: 18, minZoom: 10, maxZoom: 20,
+        dragRotate: false, pitchWithRotate: false,
+      });
+      viewerMap.touchZoomRotate.disableRotation();
+      viewerMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      viewerMap.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    } else {
+      viewerMap.resize();
+      viewerMap.jumpTo({ center: c.coords, zoom: 18 });
+    }
+    viewerMarker?.remove();
+    viewerMarker = new maplibregl.Marker({ color: NETWORK_COLOR[flash ? 'flash' : 'tesla'] }).setLngLat(c.coords).addTo(viewerMap);
+    $('#viewer-close').focus();
+  }
+  function closeAerialViewer() {
+    $('#aerial-viewer').hidden = true;
+    viewerReturnFocus?.focus?.();
+  }
+
+  function chargerLinks(p, coords) {
+    const [lon, lat] = coords;
+    return {
+      street: `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}`,
+      maps: p.network === 'flash' && /^https:\/\//.test(p.url || '') ? p.url
+        : `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+    };
+  }
+  function linksHtml(links) {
+    return `<div class="popup-links">
+        <a href="${esc(links.street)}" target="_blank" rel="noopener">ストリートビュー ↗</a>
+        <a href="${esc(links.maps)}" target="_blank" rel="noopener">Googleマップ ↗</a>
+      </div>`;
+  }
+
+  function aerialHtml(id, coords, approximate) {
     const [lon, lat] = coords;
     const n = 2 ** AERIAL_ZOOM;
     const fx = ((lon + 180) / 360) * n;
@@ -864,16 +931,12 @@
         tiles.push(`<img src="https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${AERIAL_ZOOM}/${tx + dx}/${ty + dy}.jpg" alt="" loading="lazy" style="left:${(dx + 1) * 256}px;top:${(dy + 1) * 256}px" onerror="this.style.visibility='hidden'">`);
       }
     }
-    const street = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}`;
-    return `<figure class="aerial">
+    return `<figure class="aerial" data-aerial-id="${esc(id)}" role="button" tabindex="0" aria-label="航空写真を大きく表示">
         <div class="aerial-tiles" style="left:${left}px;top:${top}px">${tiles.join('')}</div>
         <span class="aerial-pin"></span>
+        <span class="aerial-expand" aria-hidden="true">⤢ 拡大</span>
         <figcaption>${approximate ? '位置は住所から推定 · ' : ''}航空写真：国土地理院</figcaption>
-      </figure>
-      <div class="popup-links">
-        <a href="${street}" target="_blank" rel="noopener">ストリートビュー ↗</a>
-        <a href="${esc(mapsUrl)}" target="_blank" rel="noopener">Googleマップ ↗</a>
-      </div>`;
+      </figure>`;
   }
 
   function powerTier(kw) {
@@ -909,12 +972,11 @@
     if (p.opened) rows.push(['開設日', esc(p.opened)]);
     if (p.hours) rows.push(['営業時間', esc(p.hours)]);
     const sub = [flash ? 'FLASH' : 'テスラ SC', p.facility].filter(Boolean).map(esc).join(' · ');
-    const mapsUrl = flash && /^https:\/\//.test(p.url || '') ? p.url
-      : `https://www.google.com/maps/search/?api=1&query=${coords[1]},${coords[0]}`;
     return `<div class="charger-popup ${flash ? 'flash' : 'tesla'}">
       <h3>${esc(p.name)}</h3>
       <div class="muted">${sub}</div>
-      ${aerialHtml(coords, flash, mapsUrl)}
+      ${aerialHtml(p.id, coords, flash)}
+      ${linksHtml(chargerLinks(p, coords))}
       <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
       <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
     </div>`;

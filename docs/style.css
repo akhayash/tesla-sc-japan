@@ -662,3 +662,18 @@ footer { padding: 2px 2px 0; }
 .hz-pop table td { font-size: 11px; }
 .hz-pop tr:not(.on) td { color: #8c959f; }
 .hz-pop i { width: 6px; height: 6px; border-width: 2px; margin-right: 4px; }
+
+/* ---------- brand header ---------- */
+.brand { display: flex; align-items: center; gap: 11px; }
+.brand-mark { width: 40px; height: 40px; flex: 0 0 40px; filter: drop-shadow(0 4px 10px rgba(20, 23, 28, .18)); }
+.brand-text { flex: 1; min-width: 0; }
+.panel-header .brand h1 { font-size: 20px; line-height: 1.15; letter-spacing: -.02em; white-space: nowrap; }
+.brand-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin-top: 3px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.brand-meta span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.brand-meta b { color: var(--text); font-weight: 700; }
+.brand-meta i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.brand-meta i.flash { background: var(--flash); }
+.panel-header .quick-links { gap: 6px; }
+.panel-header .quick-links a { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 10px; color: #4f5661; }
+.panel-header .quick-links a:hover { color: var(--text); background: var(--surface-subtle); }
+.panel-header .quick-links svg { width: 17px; height: 17px; fill: currentColor; }

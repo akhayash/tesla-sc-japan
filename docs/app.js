@@ -138,6 +138,7 @@
       unitGeo[k] = topojson.feature(topo, topo.objects[k]);
     }
     $('#fetched').textContent = sc.fetched;
+    renderBrandMeta();
     setupMap();
     bindUi();
     render();
@@ -146,6 +147,15 @@
     $('#loading').textContent = 'データの読み込みに失敗しました。再読み込みしてください。';
     console.error(e);
   });
+
+  // ---------- state / URL ----------
+  function renderBrandMeta() {
+    const open = sc.features.filter((f) => f.properties.group === 'open');
+    const n = (net) => open.filter((f) => (f.properties.network || 'tesla') === net).length;
+    const d = String(sc.fetched || '').split('-');
+    const date = d.length === 3 ? `${Number(d[1])}/${Number(d[2])}` : sc.fetched;
+    $('#brand-meta').innerHTML = `<span><i></i>Tesla <b>${n('tesla')}</b></span><span><i class="flash"></i>FLASH <b>${n('flash')}</b></span><span>${esc(date)} 更新</span>`;
+  }
 
   // ---------- state / URL ----------
   function readHash() {

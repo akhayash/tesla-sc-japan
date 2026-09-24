@@ -282,7 +282,7 @@
       layout: { visibility: state.roadFacilities ? 'visible' : 'none' },
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2.3, 8, 4, 12, 6],
-        'circle-color': ['match', ['get', 'code'], 2943, '#ea580c', '#f97316'],
+        'circle-color': ['match', ['get', 'code'], 2943, '#f97316', '#eab308'],
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 1.2,
       },
@@ -293,10 +293,13 @@
       filter: ['in', ['get', 'code'], ['literal', [2941, 2942, 2945]]],
       layout: { visibility: state.roadFacilities ? 'visible' : 'none' },
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 6.5, 2, 10, 4.5, 12, 6],
-        'circle-color': '#7c3aed',
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          6.5, ['match', ['get', 'code'], 2942, 3, 2],
+          10, ['match', ['get', 'code'], 2942, 6, 2941, 4.5, 4],
+          12, ['match', ['get', 'code'], 2942, 7, 6]],
+        'circle-color': ['match', ['get', 'code'], 2942, '#059669', 2945, '#0284c7', '#7c3aed'],
         'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 1.2,
+        'circle-stroke-width': ['match', ['get', 'code'], 2942, 1.8, 1.2],
       },
     });
     map.addSource('sc', { type: 'geojson', data: sc });

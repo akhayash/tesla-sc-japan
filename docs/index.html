@@ -7,7 +7,7 @@
   <meta name="description" content="日本のテスラ スーパーチャージャーとFLASH NACS急速充電器を人口分布と重ね、充電拠点が少ない地域を可視化します。">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23e31937'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=20260924-ui">
+  <link rel="stylesheet" href="style.css?v=20260924-facility-colors">
 </head>
 <body>
   <aside id="panel">
@@ -112,7 +112,11 @@
           <label class="check-row transport-road"><input type="checkbox" id="show-expressway" checked><span>高速道路等</span></label>
           <label class="check-row transport-facility"><input type="checkbox" id="show-road-facilities" checked><span>IC/JCT・SA/PA</span></label>
         </div>
-        <div class="field-note">国土地理院ベクトル。施設は拡大時、名称は選択時に表示</div>
+        <div class="transport-key" aria-label="道路施設の色">
+          <span class="ic">IC</span><span class="jct">JCT</span><span class="smart">スマートIC</span>
+          <span class="sa">SA</span><span class="pa">PA</span>
+        </div>
+        <div class="field-note">国土地理院ベクトル。施設名は選択時に表示</div>
       </div>
     </section>
 
@@ -167,6 +171,6 @@
   <script src="https://cdn.jsdelivr.net/npm/deck.gl@9.0.38/dist.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
-  <script src="app.js?v=20260924-mesh-default"></script>
+  <script src="app.js?v=20260924-facility-colors"></script>
 </body>
 </html>

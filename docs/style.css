@@ -235,6 +235,30 @@ select:focus-visible, button:focus-visible, input:focus-visible, summary:focus-v
 }
 .transport-road span::before { background: #0f172a; }
 .transport-facility span::before { background: #7c3aed; }
+.transport-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  margin-top: 7px;
+  color: #68707c;
+  font-size: 9px;
+}
+.transport-key span::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 3px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, .12);
+  vertical-align: -1px;
+}
+.transport-key .ic::before { background: #7c3aed; }
+.transport-key .jct::before { background: #059669; }
+.transport-key .smart::before { background: #0284c7; }
+.transport-key .sa::before { background: #f97316; }
+.transport-key .pa::before { background: #eab308; }
 .field-note {
   margin-top: 6px;
   color: #9299a3;

@@ -80,6 +80,12 @@ with sync_playwright() as p:
             if page.get_attribute('[data-poi="poiMichinoeki"]', "aria-pressed") != "true" or "poiMichinoeki=1" not in page.url:
                 errors.append("michi-no-eki toggle did not update state")
             page.click('[data-poi="poiMichinoeki"]')
+            if page.get_attribute("#smart-toll-toggle", "aria-pressed") != "true" or not page.is_visible("#toll-key"):
+                errors.append("smart toll layer should be on by default with its key visible")
+            page.click("#smart-toll-toggle")
+            if page.get_attribute("#smart-toll-toggle", "aria-pressed") != "false" or "smartToll=0" not in page.url or page.is_visible("#toll-key"):
+                errors.append("smart toll toggle did not update state")
+            page.click("#smart-toll-toggle")
         if name == "a_flash_only" and (page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):
             errors.append("FLASH-only state was not restored from URL")
         if name == "a_both" and (not page.is_checked("#use-tesla") or not page.is_checked("#use-flash")):

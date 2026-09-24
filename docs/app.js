@@ -74,6 +74,7 @@
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
     facilityIc: true, facilityJct: true, facilitySmart: true, facilitySa: true, facilityPa: true,
     poiConvenience: false, poiMichinoeki: false, poiMall: false,
+    smartToll: true,
     rankMin: '0', base: 'pale',
   };
   readHash();
@@ -172,7 +173,7 @@
       tesla: ['0', '1'], flash: ['0', '1'], expressway: ['0', '1'], roadFacilities: ['0', '1'],
       facilityIc: ['0', '1'], facilityJct: ['0', '1'], facilitySmart: ['0', '1'],
       facilitySa: ['0', '1'], facilityPa: ['0', '1'],
-      poiConvenience: ['0', '1'], poiMichinoeki: ['0', '1'], poiMall: ['0', '1'],
+      poiConvenience: ['0', '1'], poiMichinoeki: ['0', '1'], poiMall: ['0', '1'], smartToll: ['0', '1'],
       base: ['pale', 'std', 'photo', 'blank'],
     };
     const p = new URLSearchParams(location.hash.slice(1));
@@ -440,7 +441,7 @@
     });
     map.on('click', 'units-fill', (e) => {
       if (state.mode !== 'A') return;
-      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'sc-icons', 'road-service-areas', 'road-junctions', ...POI_TYPES.flatMap((t) => [`poi-${t.type}`, `poi-${t.type}-dot`])].filter((id) => map.getLayer(id)) }).length) return;
+      if (map.queryRenderedFeatures(e.point, { layers: ['sc-points', 'sc-icons', 'road-service-areas', 'road-junctions', 'toll-station', 'toll-ic', ...POI_TYPES.flatMap((t) => [`poi-${t.type}`, `poi-${t.type}-dot`])].filter((id) => map.getLayer(id)) }).length) return;
       openUnitPopup(e.features[0].properties.code, e.lngLat);
     });
     for (const id of ['sc-points', 'sc-icons']) {
@@ -539,6 +540,12 @@
         render();
       });
     });
+    $('#smart-toll-toggle').addEventListener('click', () => {
+      state.smartToll = !state.smartToll;
+      render();
+    });
+    $('#toll-key').innerHTML = [['kashikoi', '賢い料金（ETC2.0全車・2時間以内）'], ['ev', 'EV路外充電（ETC2.0のEV・60分以内）']]
+      .map(([kind, label]) => `<span><img src="${drawTollIcon(kind).toDataURL()}" alt="">${label}</span>`).join('');
     for (const key of ['tesla', 'flash']) {
       $(`#use-${key}`).addEventListener('change', (e) => {
         state[key] = e.target.checked;
@@ -580,6 +587,9 @@
       button.classList.toggle('off', !enabled);
       button.setAttribute('aria-pressed', String(enabled));
     });
+    $('#smart-toll-toggle').classList.toggle('off', !state.smartToll);
+    $('#smart-toll-toggle').setAttribute('aria-pressed', String(state.smartToll));
+    $('#toll-key').hidden = !state.smartToll;
     $('#use-tesla').checked = state.tesla;
     $('#use-flash').checked = state.flash;
     $('#basemap').value = state.base;
@@ -619,6 +629,7 @@
       map.setLayoutProperty(id, 'visibility', state.roadFacilities ? 'visible' : 'none');
     }
     renderPoi();
+    renderSmartToll();
     window.HazardOverlay?.setActive(state.mode === 'C');
     map.setMaxZoom(state.mode === 'C' ? 17 : 13);
     if (state.mode === 'A') renderA();
@@ -1095,6 +1106,157 @@
     map.setFilter('poi-labels', ['in', ['get', 't'], ['literal', enabled.map((t) => t.type).filter((type) => type !== 'convenience')]]);
   }
 
+  // ---------- 賢い料金 / EV路外充電 (leave the expressway at no extra toll) ----------
+  const TOLL_KIND = {
+    kashikoi: { color: '#16a34a', label: '賢い料金（道の駅一時退出）', short: '賢い料金', target: 'ETC2.0搭載車（全車種）' },
+    ev: { color: '#f59e0b', label: 'EV路外充電サービス（社会実験）', short: 'EV路外充電', target: 'ETC2.0搭載のEV（セットアップ証明書の燃料種別が「電気」）' },
+  };
+  const ARROW_PATH = 'M12 5a7 7 0 1 1-6.7 5H3l3.5-4.2L10 10H7.4A5 5 0 1 0 12 7z';
+  let tollState = 'idle', tollData = null;
+
+  function drawTollIcon(kind) {
+    const ratio = 2, base = 17, r = 6;
+    const canvas = document.createElement('canvas');
+    canvas.width = (base + r + 6) * ratio;
+    canvas.height = (base + r + 4) * ratio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(ratio, ratio);
+    ctx.drawImage(drawPoiIcon('michinoeki', '#9a5b13'), 0, r - 1, base + 4, base + 4);
+    const cx = base + 1, cy = r + 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = TOLL_KIND[kind].color;
+    ctx.fill();
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(cx - 4.4, cy - 4.4);
+    ctx.scale(8.8 / 24, 8.8 / 24);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill(new Path2D(kind === 'ev' ? BOLT_PATH : ARROW_PATH));
+    ctx.restore();
+    return canvas;
+  }
+
+  async function loadSmartToll() {
+    tollState = 'loading';
+    try {
+      tollData = await fetch('data/smart_toll.json', { cache: 'no-cache' }).then((r) => r.json());
+      const features = [];
+      tollData.pairs.forEach((p, i) => {
+        features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: [p.ic_coords, p.station_coords] }, properties: { kind: p.kind, i } });
+        features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: p.ic_coords }, properties: { kind: p.kind, i, role: 'ic', n: p.ic } });
+        features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: p.station_coords }, properties: { kind: p.kind, i, role: 'station', n: `道の駅 ${p.station}` } });
+      });
+      map.addSource('smart-toll', { type: 'geojson', data: { type: 'FeatureCollection', features } });
+      for (const kind of Object.keys(TOLL_KIND)) map.addImage(`toll-${kind}`, canvasData(drawTollIcon(kind)), { pixelRatio: 2 });
+      const colorByKind = ['match', ['get', 'kind'], 'ev', TOLL_KIND.ev.color, TOLL_KIND.kashikoi.color];
+      map.addLayer({
+        id: 'toll-line-kashikoi', type: 'line', source: 'smart-toll', minzoom: 8,
+        filter: ['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'kind'], 'kashikoi']],
+        layout: { 'line-cap': 'round' },
+        paint: { 'line-color': TOLL_KIND.kashikoi.color, 'line-width': 2.2, 'line-dasharray': [1.2, 1.6] },
+      }, 'sc-points');
+      map.addLayer({
+        id: 'toll-line-ev', type: 'line', source: 'smart-toll', minzoom: 8,
+        filter: ['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'kind'], 'ev']],
+        layout: { 'line-cap': 'round' },
+        paint: { 'line-color': TOLL_KIND.ev.color, 'line-width': 3 },
+      }, 'sc-points');
+      map.addLayer({
+        id: 'toll-ic', type: 'circle', source: 'smart-toll', minzoom: 8,
+        filter: ['==', ['get', 'role'], 'ic'],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 6, 12, 9],
+          'circle-color': 'rgba(255,255,255,0)',
+          'circle-stroke-color': colorByKind,
+          'circle-stroke-width': 2.5,
+        },
+      }, 'sc-points');
+      map.addLayer({
+        id: 'toll-station', type: 'symbol', source: 'smart-toll',
+        filter: ['==', ['get', 'role'], 'station'],
+        layout: {
+          'icon-image': ['concat', 'toll-', ['get', 'kind']],
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.7, 9, 1.05, 12, 1.3],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'text-field': ['step', ['zoom'], '', 9, ['get', 'n']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 10.5,
+          'text-offset': [0, 1.3],
+          'text-anchor': 'top',
+          'text-optional': true,
+        },
+        paint: { 'text-color': '#3f3f46', 'text-halo-color': 'rgba(255,255,255,.95)', 'text-halo-width': 1.8 },
+      }, 'sc-points');
+      for (const id of ['toll-station', 'toll-ic']) {
+        map.on('mousemove', id, (e) => {
+          const f = e.features[0].properties, p = tollData.pairs[f.i];
+          map.getCanvas().style.cursor = 'pointer';
+          showTip(e.originalEvent, `<b>${esc(f.n)}</b><br>${TOLL_KIND[p.kind].short}：${esc(p.ic)} ⇄ 道の駅 ${esc(p.station)}`);
+        });
+        map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; $('#tooltip').hidden = true; });
+        map.on('click', id, (e) => {
+          const i = e.features[0].properties.i;
+          $('#tooltip').hidden = true;
+          popup.setLngLat(tollData.pairs[i].station_coords).setHTML(tollPopupHtml(i)).addTo(map);
+        });
+      }
+      tollState = 'ready';
+      renderSmartToll();
+    } catch (err) {
+      tollState = 'idle';
+      console.error(err);
+    }
+  }
+
+  function renderSmartToll() {
+    if (tollState !== 'ready') {
+      if (state.smartToll && tollState === 'idle') loadSmartToll();
+      return;
+    }
+    for (const id of ['toll-line-kashikoi', 'toll-line-ev', 'toll-ic', 'toll-station']) {
+      map.setLayoutProperty(id, 'visibility', state.smartToll ? 'visible' : 'none');
+    }
+  }
+
+  function nearbyChargers(coords, km) {
+    return [...chargerById.values()]
+      .map((c) => ({ c, d: distanceKm(coords, c.coords) }))
+      .filter((x) => x.d <= km)
+      .sort((a, b) => a.d - b.d);
+  }
+  function distanceKm(a, b) {
+    const kx = 111.32 * Math.cos(((a[1] + b[1]) / 2) * Math.PI / 180);
+    return Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 110.54);
+  }
+
+  function tollPopupHtml(i) {
+    const p = tollData.pairs[i], k = TOLL_KIND[p.kind];
+    const rule = p.kind === 'ev'
+      ? `${esc(p.ic)}で降りてこの道の駅の${esc(p.charger)}で充電し、<b>60分以内</b>に同じICから同じ方向へ戻れば、高速道路を降りなかった場合と同じ料金です。`
+      : `${esc(p.ic)}で降りてこの道の駅に立ち寄り（出入口のETC2.0アンテナを通過）、<b>2時間以内</b>に同じICから同じ方向へ戻れば、高速道路を降りなかった場合と同じ料金です。`;
+    const near = nearbyChargers(p.station_coords, 2);
+    const nearHtml = near.length
+      ? near.map(({ c, d }) => `${c.props.network === 'flash' ? 'FLASH' : 'テスラ SC'} ${esc(c.props.name)}（${d.toFixed(1)}km）`).join('<br>')
+      : 'なし（テスラ SC・FLASH）';
+    return `<div class="charger-popup toll-popup">
+      <h3>道の駅 ${esc(p.station)}</h3>
+      <div class="toll-badge ${p.kind}"><img src="${drawTollIcon(p.kind).toDataURL()}" alt="">${k.label}</div>
+      <p class="toll-rule">${rule}</p>
+      <table>
+        <tr><td>対象</td><td>${k.target}</td></tr>
+        <tr><td>乗り降りするIC</td><td>${esc(p.ic)}（道の駅まで約${p.distance_km}km）</td></tr>
+        <tr><td>2km以内の充電器</td><td>${nearHtml}</td></tr>
+      </table>
+      ${aerialHtml(`toll:${i}`, p.station_coords, { color: k.color })}
+      ${linksHtml(placeLinks(p.station_coords))}
+      <div class="muted poi-source">出典：<a href="${esc(p.source)}" target="_blank" rel="noopener">${p.kind === 'ev' ? 'NEXCO中日本' : 'ETC総合情報ポータル'}</a>（社会実験のため変更・終了の可能性あり）</div>
+    </div>`;
+  }
+
   function syncBrandKey() {
     const key = $('#brand-key');
     key.hidden = !state.poiConvenience;
@@ -1119,6 +1281,15 @@
   }
 
   function viewerTarget(id) {
+    if (String(id).startsWith('toll:')) {
+      const p = tollData?.pairs[Number(String(id).slice(5))];
+      if (!p) return null;
+      const k = TOLL_KIND[p.kind];
+      return {
+        title: `道の駅 ${p.station}`, sub: `${k.label} · ${p.ic}`, coords: p.station_coords, color: k.color,
+        note: '', links: placeLinks(p.station_coords),
+      };
+    }
     if (String(id).startsWith('poi:')) {
       const item = poiItems[Number(String(id).slice(4))];
       if (!item) return null;

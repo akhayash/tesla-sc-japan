@@ -20,6 +20,8 @@
 
 周辺施設として、OpenStreetMapのコンビニ・道の駅・ショッピングモールを種類ごとに重ねられます（初期状態はOFF）。引いた表示では小さな点、拡大すると種類別のアイコンで描画し、コンビニは市街地レベルから表示します。コンビニは地図上ではチェーンの文字なしマーク（またはチェーン色のアイコン）で区別し、ポップアップにロゴを表示します（ロゴは Wikimedia Commons のパブリックドメインまたは CC BY 2.5 の画像を使用。各ロゴは各社の商標）。施設を選択すると、充電器と同じく航空写真（拡大ビューアー付き）とストリートビュー／Googleマップへのリンクを表示します。
 
+「一時退出OK」（初期ON）では、ETC2.0で高速道路を降りても追加料金がかからない道の駅を表示します。緑の矢印バッジは「賢い料金」（ETC2.0搭載車全般・2時間以内に同じICから同方向へ再流入、全国29箇所）、橙の稲妻バッジは「EV路外充電サービス」（ETC2.0搭載のEVが道の駅の急速充電器を使い60分以内に再流入）です。拡大すると対象ICを同色の輪で示し、道の駅と破線（賢い料金）／実線（EV路外充電）で結びます。
+
 充電器の点を選択すると、国土地理院の航空写真（押すと全画面に近いビューアーで拡大・移動可能）とストリートビュー／Googleマップへのリンク、最大出力（雷アイコン3段階：200kW以上／100〜199kW／100kW未満）、ストール数、充電器世代（V2/V3/V4/Urban）、コネクター、車いす対応・トレーラー可の区画数、営業時間などのスペックを表示します。地図を拡大すると充電器の点が雷マーク入りのバッジに切り替わり、雷の数で出力の段階を示します（全国表示では点の大きさで区別）。1kmメッシュの表示ボタンは選択中のものを再度押すとOFFになり、充電器と交通レイヤだけを表示できます。サイドパネルは折りたためます。
 
 ### 1kmメッシュ（手法B）
@@ -44,6 +46,7 @@
 - 背景地図：[国土地理院 淡色地図](https://maps.gsi.go.jp/development/ichiran.html)
 - 道路・施設：[国土地理院 最適化ベクトルタイル](https://github.com/gsi-cyberjapan/optimal_bvmap)（試験公開。「高速道路等」は地図表現上の区分）
 - 周辺施設：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors（ODbL 1.0）。コンビニ・モールは施設種別タグ、道の駅は登録名称「道の駅」で抽出
+- 高速を降りても追加料金なしの道の駅：[ETC総合情報ポータル「賢い料金」](https://www.go-etc.jp/michinoeki)、[NEXCO中日本「EV路外充電サービス 社会実験」](https://www.c-nexco.co.jp/corporate/pressroom/news_release/6508.html)（いずれも社会実験）
 - 災害情報：「[ハザードマップポータルサイト](https://disaportal.gsi.go.jp/)」（国土交通省）を加工して作成（公共データ利用規約 第1.0版）
 
 ## データ再生成
@@ -60,6 +63,7 @@ cd pipeline
 | `pipeline/fetch_sc.py` | supercharge.info から日本のSCを取得 → `docs/data/sc.geojson` |
 | `pipeline/fetch_flash.py` | FLASH公式一覧からNACS対応拠点を取得し、住所を座標化 |
 | `pipeline/fetch_poi.py` | OpenStreetMap（Overpass API）からコンビニ・道の駅・モールを取得 → `docs/data/poi.json`（手動実行。`--cached` で前回の取得結果を再利用） |
+| `pipeline/fetch_smart_toll.py` | 「賢い料金」（道の駅一時退出）とEV路外充電の IC⇄道の駅 ペアを取得し座標を付与 → `docs/data/smart_toll.json`（手動実行） |
 | `pipeline/fetch_inputs.py` | 境界・市区町村人口・1kmメッシュ人口を取得 |
 | `pipeline/build_admin.py` | 手法Aの集計 → `docs/data/admin_stats.json` |
 | `pipeline/build_mesh.py` | 手法Bの人口平滑化 → `docs/data/mesh.bin`, `mesh_meta.json` |

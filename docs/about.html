@@ -96,6 +96,12 @@
         <td>各ロゴは各社の商標または登録商標です。店舗の所在を示す目的でのみ使用しています。</td>
         <td>縮小版PNGを本サイトで配信。地図上では、ロゴ全体（セブン-イレブン・ミニストップ）またはロゴから文字を含まないシンボル部分を切り出したもの（ファミリーマート・ポプラ）を、色を変えずに正方形の白枠に表示。文字のみのロゴのチェーンは地図上ではチェーン色のアイコンで表し、ロゴはポップアップに表示。</td>
       </tr>
+      <tr>
+        <td>高速を降りても追加料金なしの道の駅</td>
+        <td><a href="https://www.go-etc.jp/michinoeki" target="_blank" rel="noopener">ETC総合情報ポータル「賢い料金」社会実験</a>（29箇所）、<a href="https://www.c-nexco.co.jp/corporate/pressroom/news_release/6508.html" target="_blank" rel="noopener">NEXCO中日本「EV路外充電サービス 社会実験」</a><br>取得日：<span id="fetched-toll">-</span></td>
+        <td>公表情報を参照。社会実験のため、対象箇所・条件は変更・終了の可能性があります。利用前に公式情報を確認してください。</td>
+        <td>公表されたIC／道の駅の組み合わせに、ICは国土地理院の交通施設、道の駅はOpenStreetMapの位置を名称で突合して付与（OSMに無い「丹波おばあちゃんの里」は公式住所を国土地理院の住所検索で座標化）。</td>
+      </tr>
     </tbody>
   </table>
   <div class="credit">
@@ -162,6 +168,9 @@
   }).catch(() => {});
   fetch('data/poi.json', { cache: 'no-cache' }).then((r) => r.json()).then((d) => {
     document.getElementById('fetched-poi').textContent = d.fetched || '-';
+  }).catch(() => {});
+  fetch('data/smart_toll.json', { cache: 'no-cache' }).then((r) => r.json()).then((d) => {
+    document.getElementById('fetched-toll').textContent = d.fetched || '-';
   }).catch(() => {});
 </script>
 </body>

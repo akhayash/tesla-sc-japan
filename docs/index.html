@@ -9,7 +9,7 @@
   <link rel="icon" href="favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="favicon-32.png?v=2" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-  <link rel="stylesheet" href="style.css?v=20260925-brand-marks">
+  <link rel="stylesheet" href="style.css?v=20260925-smart-toll">
 </head>
 <body>
   <aside id="panel">
@@ -175,6 +175,13 @@
           </div>
         </div>
         <div class="brand-key" id="brand-key" aria-label="コンビニのチェーン" hidden></div>
+        <div class="key-row">
+          <span class="key-label">高速料金</span>
+          <div class="transport-key">
+            <button type="button" class="toll" id="smart-toll-toggle" aria-pressed="true" title="ETC2.0で高速道路を降りても追加料金がかからない道の駅">一時退出OK</button>
+          </div>
+        </div>
+        <div class="toll-key" id="toll-key" aria-label="一時退出の種類"></div>
         <div class="field-note">凡例を押して種類ごとに切替。拡大すると名称を表示（コンビニは市街地まで拡大すると表示）</div>
       </div>
     </section>
@@ -249,6 +256,6 @@
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
   <script src="hazard-overlay.js?v=20260924-hazard-tab"></script>
-  <script src="app.js?v=20260925-brand-marks"></script>
+  <script src="app.js?v=20260925-smart-toll"></script>
 </body>
 </html>

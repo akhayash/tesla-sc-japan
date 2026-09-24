@@ -345,6 +345,32 @@ select:focus-visible, button:focus-visible, input:focus-visible, summary:focus-v
 .brand-key span { display: inline-flex; align-items: center; gap: 3px; }
 .brand-key img { display: block; width: 14px; height: 14px; }
 .poi-logo { display: block; height: 18px; width: auto; max-width: 120px; margin-bottom: 6px; }
+.transport-key .toll::before { background: #16a34a; }
+.toll-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: 5px 0 0 50px;
+  color: #68707c;
+  font-size: 9px;
+}
+.toll-key span { display: inline-flex; align-items: center; gap: 3px; }
+.toll-key img { display: block; height: 15px; width: auto; }
+.toll-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 4px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.toll-badge img { height: 18px; width: auto; }
+.toll-badge.kashikoi { color: #166534; background: #dcfce7; }
+.toll-badge.ev { color: #92400e; background: #fef3c7; }
+.toll-rule { margin: 4px 0 6px; font-size: 11px; line-height: 1.6; }
+.maplibregl-popup-content .toll-popup td:last-child { text-align: left; }
 .brand-key i {
   display: inline-grid;
   place-items: center;

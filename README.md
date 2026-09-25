@@ -47,7 +47,7 @@
 - FLASH：[FLASH公式 設置場所一覧](https://ev-charger.jp/area/)（NACS対応拠点のみ。住所を国土地理院住所検索APIで座標化。CHAdeMO/NACS共用の1基を1ストールとして集計）
 - 人口：令和2年国勢調査（総務省統計局）都道府県・市区町村別の主な結果、地域メッシュ統計（3次メッシュ）— [e-Stat](https://www.e-stat.go.jp/)
 - 行政区域：[国土数値情報 行政区域データ](https://nlftp.mlit.go.jp/ksj/)（国土交通省）を加工した [smartnews-smri/japan-topography](https://github.com/smartnews-smri/japan-topography)（2021年1月1日時点）を加工
-- 背景地図：[国土地理院 淡色地図](https://maps.gsi.go.jp/development/ichiran.html)
+- 背景地図：[国土地理院 地理院タイル](https://maps.gsi.go.jp/development/ichiran.html)（淡色地図・標準地図・写真・白地図。地図左下の切替で選択）
 - 道路・施設：[国土地理院 最適化ベクトルタイル](https://github.com/gsi-cyberjapan/optimal_bvmap)（試験公開。「高速道路等」は地図表現上の区分）
 - 周辺施設：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors（ODbL 1.0）。コンビニ・モールは施設種別タグ、道の駅は登録名称「道の駅」で抽出
 - 高速を降りても追加料金なしの道の駅：[ETC総合情報ポータル「賢い料金」](https://www.go-etc.jp/michinoeki)、[NEXCO中日本「EV路外充電サービス 社会実験」](https://www.c-nexco.co.jp/corporate/pressroom/news_release/6508.html)（いずれも社会実験）
@@ -86,6 +86,7 @@ cd docs; python -m http.server 8765
 .\.venv\Scripts\python tools\smoke_test.py http://localhost:8765/ screenshots
 .\.venv\Scripts\python tools\smoke_hazard.py http://localhost:8765/ screenshots
 .\.venv\Scripts\python tools\smoke_search.py http://localhost:8765/ screenshots
+.\.venv\Scripts\python tools\smoke_basemap.py http://localhost:8765/ screenshots
 .\.venv\Scripts\python tools\smoke_village.py http://localhost:8765/ screenshots
 ```
 

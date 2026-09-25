@@ -87,7 +87,7 @@
   const unitGeo = {};
   const chargerById = new Map();
   const scDensityCache = new Map();
-  let bitmap = null;
+  let bitmap = null, baseSwitcher = null;
 
   const GSI_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
   const GSI_VECTOR_ATTR = '<a href="https://github.com/gsi-cyberjapan/optimal_bvmap" target="_blank" rel="noopener">国土地理院最適化ベクトルタイル</a>';
@@ -95,10 +95,10 @@
   const pmtilesProtocol = new pmtiles.Protocol();
   maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
   const BASEMAPS = {
-    pale: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', maxzoom: 18 },
-    std: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', maxzoom: 18 },
-    photo: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', maxzoom: 18 },
-    blank: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png', minzoom: 5, maxzoom: 14 },
+    pale: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', maxzoom: 18, label: '淡色地図', short: '地図' },
+    std: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', maxzoom: 18, label: '標準地図' },
+    photo: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', maxzoom: 18, label: '航空写真' },
+    blank: { tiles: 'https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png', minzoom: 5, maxzoom: 14, label: '白地図', note: '白地図（拡大時に表示）' },
   };
   const baseSources = {}, baseLayers = [];
   for (const [id, b] of Object.entries(BASEMAPS)) {
@@ -650,10 +650,15 @@
         render();
       });
     }
-    $('#basemap').addEventListener('change', (e) => {
-      state.base = e.target.value;
-      for (const id of Object.keys(BASEMAPS)) map.setLayoutProperty(`base-${id}`, 'visibility', id === state.base ? 'visible' : 'none');
-      writeHash();
+    baseSwitcher = window.BaseSwitcher?.init({
+      map,
+      options: Object.entries(BASEMAPS).map(([id, b]) => ({ id, tiles: b.tiles, label: b.label, short: b.short, note: b.note })),
+      get: () => state.base,
+      set: (id) => {
+        state.base = id;
+        for (const k of Object.keys(BASEMAPS)) map.setLayoutProperty(`base-${k}`, 'visibility', k === state.base ? 'visible' : 'none');
+        writeHash();
+      },
     });
     $('#pop-alpha').addEventListener('change', (e) => { state.popAlpha = e.target.checked; render(); });
   }
@@ -685,7 +690,7 @@
     $('#toll-key').hidden = !state.smartToll;
     $('#use-tesla').checked = state.tesla;
     $('#use-flash').checked = state.flash;
-    $('#basemap').value = state.base;
+    baseSwitcher?.sync();
     $('#pop-alpha').checked = state.popAlpha;
     const meshDensityShown = state.mode === 'B' && (state.layer === 'ratio' || state.layer === 'sc');
     $('#ctl-bw').hidden = !meshDensityShown;

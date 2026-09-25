@@ -9,7 +9,7 @@
   <link rel="icon" href="favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="favicon-32.png?v=2" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-  <link rel="stylesheet" href="style.css?v=20260925-search">
+  <link rel="stylesheet" href="style.css?v=20260925-base">
 </head>
 <body>
   <aside id="panel">
@@ -145,15 +145,6 @@
         <label class="check-row" data-show="B" id="ctl-pop-alpha"><input type="checkbox" id="pop-alpha" checked><span>低人口メッシュを薄く表示</span></label>
       </div>
       <div class="ctl">
-        <label for="basemap">背景地図</label>
-        <select id="basemap">
-          <option value="pale">淡色地図</option>
-          <option value="std">標準地図</option>
-          <option value="photo">航空写真</option>
-          <option value="blank">白地図（拡大時に表示）</option>
-        </select>
-      </div>
-      <div class="ctl">
         <label>地図に重ねる</label>
         <div class="display-options">
           <label class="check-row transport-road"><input type="checkbox" id="show-expressway" checked><span>高速道路等</span></label>
@@ -257,6 +248,7 @@
   <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
   <script src="hazard-overlay.js?v=20260925-search"></script>
   <script src="search.js?v=20260925-search-net"></script>
-  <script src="app.js?v=20260925-bolt-badge"></script>
+  <script src="basemap-switcher.js?v=20260925-base"></script>
+  <script src="app.js?v=20260925-base"></script>
 </body>
 </html>

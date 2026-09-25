@@ -961,41 +961,45 @@
   const AERIAL_BOX = { w: 272, h: 150 };
 
   function drawChargerIcon(network, tier, planned) {
-    const ratio = 2, height = 18, boltScale = 0.5, boltStep = 8;
-    const bolts = tier;
-    const groupWidth = bolts ? bolts * 7.5 + (bolts - 1) * 0.5 : 0;
-    const width = bolts ? Math.max(height, groupWidth + 10) : 12;
-    const iconHeight = bolts ? height : 12;
+    // Fixed-size round badge; higher tiers stack overlapping bolts inside it instead of widening it.
+    const ratio = 2, pad = 2;
+    const size = tier ? 20 : 12;
     const canvas = document.createElement('canvas');
-    canvas.width = (width + 4) * ratio;
-    canvas.height = (iconHeight + 4) * ratio;
+    canvas.width = canvas.height = (size + pad * 2) * ratio;
     const ctx = canvas.getContext('2d');
     ctx.scale(ratio, ratio);
     const color = NETWORK_COLOR[network];
-    const r = iconHeight / 2;
+    const bg = planned ? '#ffffff' : color;
+    const fg = planned ? color : '#ffffff';
+    const c = pad + size / 2;
     ctx.beginPath();
-    ctx.moveTo(2 + r, 2);
-    ctx.lineTo(2 + width - r, 2);
-    ctx.arc(2 + width - r, 2 + r, r, -Math.PI / 2, Math.PI / 2);
-    ctx.lineTo(2 + r, 2 + iconHeight);
-    ctx.arc(2 + r, 2 + r, r, Math.PI / 2, Math.PI * 1.5);
-    ctx.closePath();
+    ctx.arc(c, c, size / 2, 0, Math.PI * 2);
     ctx.shadowColor = 'rgba(0,0,0,.35)';
     ctx.shadowBlur = 2;
-    ctx.fillStyle = planned ? '#ffffff' : color;
+    ctx.fillStyle = bg;
     ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = planned ? color : '#ffffff';
+    ctx.strokeStyle = fg;
     ctx.stroke();
+    if (!tier) return canvas;
     const bolt = new Path2D(BOLT_PATH);
-    const startX = 2 + (width - groupWidth) / 2 - 4 * boltScale;
-    const top = 2 + (iconHeight - 10) / 2 - 2 * boltScale;
-    ctx.fillStyle = planned ? color : '#ffffff';
-    for (let i = 0; i < bolts; i++) {
+    // BOLT_PATH spans x 4..19, y 2..22 in a 24-unit box.
+    const scale = [0, 0.62, 0.56, 0.52][tier], step = [0, 0, 3.6, 3.2][tier];
+    const w = 15 * scale, h = 20 * scale;
+    const x0 = c - (w + step * (tier - 1)) / 2 - 4 * scale;
+    const y0 = c - h / 2 - 2 * scale;
+    ctx.fillStyle = fg;
+    ctx.strokeStyle = bg;
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < tier; i++) {
       ctx.save();
-      ctx.translate(startX + i * boltStep, top);
-      ctx.scale(boltScale, boltScale);
+      ctx.translate(x0 + i * step, y0);
+      ctx.scale(scale, scale);
+      if (i) {
+        ctx.lineWidth = 2.6 / scale;
+        ctx.stroke(bolt);
+      }
       ctx.fill(bolt);
       ctx.restore();
     }

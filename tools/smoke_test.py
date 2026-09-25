@@ -11,6 +11,7 @@ OUT = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("screenshots")
 OUT.mkdir(parents=True, exist_ok=True)
 
 CASES = {
+    "default": "",
     "a_pref": "#mode=A&unit=pref&metric=p",
     "a_muni_access": "#mode=A&unit=muni_city&metric=a&rankMin=100000",
     "a_ward_dist": "#mode=A&unit=muni_ward&metric=d&rankMin=100000",
@@ -119,6 +120,8 @@ with sync_playwright() as p:
             print("tooltip:", tips)
             if not any(tips):
                 errors.append("mesh tooltip never appeared")
+        if name == "default" and (page.locator('[data-key="layer"] button.active').count() or "layer=none" not in page.url):
+            errors.append("mesh layer should be off by default")
         if name == "share_charger":
             popup = page.locator(".maplibregl-popup-content")
             if not popup.count() or not popup.locator("[data-share]").count():

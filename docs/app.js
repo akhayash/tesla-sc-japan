@@ -70,7 +70,7 @@
 
   const state = {
     mode: 'B', unit: 'pref', metric: 'p', weight: 't', status: 'o',
-    layer: 'ratio', bw: '10', tesla: true, flash: false,
+    layer: 'none', bw: '10', tesla: true, flash: false,
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
     facilityIc: true, facilityJct: true, facilitySmart: true, facilitySa: true, facilityPa: true,
     poiConvenience: false, poiMichinoeki: false, poiMall: false,

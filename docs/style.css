@@ -169,6 +169,16 @@ body.panel-collapsed #loading { inset: 0; }
   flex-wrap: wrap;
   gap: 5px;
 }
+#bw-value { margin-left: 4px; color: var(--text, #1f2328); font-weight: 700; }
+#bw-slider { display: block; width: 100%; margin: 2px 0 0; accent-color: #22262b; }
+.bw-scale {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.bw-scale span { width: 0; display: flex; justify-content: center; white-space: nowrap; }
 .seg button {
   min-height: 34px;
   flex: 1 1 auto;

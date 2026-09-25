@@ -26,6 +26,9 @@ CASES = {
     "b_none": "#mode=B&layer=none",
     "b_flash_ratio": "#mode=B&layer=ratio&bw=30&tesla=0&flash=1",
     "share_charger": "#mode=B&layer=none&at=139.63,35.46,13&sel=c:6564",
+    "b_ratio_bw3": "#mode=B&layer=ratio&bw=3&at=139.7,35.68,10",
+    "b_sc_bw20": "#mode=B&layer=sc&bw=20",
+    "b_near": "#mode=B&layer=near&tesla=1&flash=1&at=139.7,35.68,10",
 }
 
 errors: list[str] = []
@@ -128,6 +131,24 @@ with sync_playwright() as p:
                 errors.append("shared charger link did not reopen its popup with a share button")
             elif "sel=c%3A6564" not in page.url and "sel=c:6564" not in page.url:
                 errors.append("selected place was not kept in the URL")
+        if name == "b_ratio_bw3":
+            if page.inner_text("#bw-value") != "σ=3km" or "0.5 未満" not in info["summary"]:
+                errors.append("σ=3km ratio did not render")
+            page.eval_on_selector("#bw-slider", "el => { el.value = '6'; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); }")
+            page.wait_for_timeout(2000)
+            if "bw=20" not in page.url or page.inner_text("#bw-value") != "σ=20km" or "σ=20km" not in page.text_content("#metric-note"):
+                errors.append("bandwidth slider did not update state")
+        if name == "b_sc_bw20" and "σ=20km" not in page.text_content("#metric-note"):
+            errors.append("σ=20km charger density did not render")
+        if name == "b_near":
+            if "10km 以上" not in info["summary"] or "40km 以上" not in info["legend"]:
+                errors.append("nearest-charger layer did not render its legend and summary")
+            if page.is_visible("#ctl-bw") or page.is_visible("#ctl-weight") or not page.is_visible("#ctl-pop-alpha"):
+                errors.append("nearest-charger layer showed the wrong controls")
+            page.mouse.move(1000, 450)
+            page.wait_for_timeout(500)
+            if "最寄り" not in page.inner_text("#tooltip"):
+                errors.append("nearest-charger tooltip did not appear")
         if name == "b_none":
             if page.locator('[data-key="layer"] button.active').count():
                 errors.append("no-mesh state was not restored from URL")

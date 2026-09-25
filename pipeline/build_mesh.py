@@ -4,8 +4,10 @@ Population is rasterised onto a 1km grid in a Japan-centred LCC projection and
 smoothed with Gaussian kernels. Supercharger density is computed in the browser
 with the same kernel (sites are few), so status / weight toggles are instant.
 
-Output docs/data/mesh.bin: little-endian float32, column-major blocks of length N:
-  lon, lat, pop, pd_<bw> for each bandwidth (people per km2)
+Output (little-endian float32, length-N blocks):
+  docs/data/mesh.bin          lon, lat, pop
+  docs/data/mesh_pd_<bw>.bin  smoothed population density (people per km2) for
+                              one bandwidth; the browser loads only the one in use
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from scipy.ndimage import gaussian_filter
 
 from common import OUT, WORK, mesh3_center, to_lcc_km
 
-BANDWIDTHS_KM = [10, 30, 50]
+BANDWIDTHS_KM = [2, 3, 5, 7, 10, 15, 20, 30, 50]
 CELL_KM = 1.0
 
 
@@ -35,23 +37,25 @@ def main() -> None:
     np.add.at(grid, (iy, ix), pop)
     print(f"grid {grid.shape}, pop {grid.sum():,.0f}")
 
-    cols = [lon, lat, pop]
+    base = np.stack([np.asarray(c, dtype=np.float32) for c in (lon, lat, pop)])
+    (OUT / "mesh.bin").write_bytes(base.astype("<f4").tobytes())
+    pd_files = {}
     for bw in BANDWIDTHS_KM:
         sm = gaussian_filter(grid, sigma=bw / CELL_KM, mode="constant", truncate=4.0)
-        cols.append(sm[iy, ix] / (CELL_KM * CELL_KM))
+        name = f"mesh_pd_{bw}.bin"
+        (OUT / name).write_bytes(np.asarray(sm[iy, ix] / (CELL_KM * CELL_KM), dtype="<f4").tobytes())
+        pd_files[str(bw)] = name
         print(f"bandwidth {bw}km done")
-
-    arr = np.stack([np.asarray(c, dtype=np.float32) for c in cols])
-    (OUT / "mesh.bin").write_bytes(arr.astype("<f4").tobytes())
     meta = {
         "n": int(len(m)),
-        "columns": ["lon", "lat", "pop"] + [f"pd{bw}" for bw in BANDWIDTHS_KM],
+        "columns": ["lon", "lat", "pop"],
         "bandwidths_km": BANDWIDTHS_KM,
+        "pd_files": pd_files,
         "population_total": float(pop.sum()),
         "lcc": "+proj=lcc +lat_1=30 +lat_2=42 +lat_0=36 +lon_0=137 +datum=WGS84 +units=m",
     }
     (OUT / "mesh_meta.json").write_text(json.dumps(meta), encoding="utf-8")
-    print(f"mesh.bin: {arr.nbytes / 1e6:.1f} MB, n={len(m)}")
+    print(f"mesh.bin: {base.nbytes / 1e6:.1f} MB, n={len(m)}")
 
 
 if __name__ == "__main__":

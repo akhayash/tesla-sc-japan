@@ -31,6 +31,15 @@
     { max: 10, color: [35, 139, 69], label: '3 〜 10' },
     { max: Infinity, color: [0, 90, 50], label: '10 以上' },
   ];
+  const NEAR_CLASSES = [
+    { max: 2, color: [33, 102, 172], label: '2km 未満' },
+    { max: 5, color: [146, 197, 222], label: '2 〜 5km' },
+    { max: 10, color: [253, 219, 199], label: '5 〜 10km' },
+    { max: 20, color: [244, 165, 130], label: '10 〜 20km' },
+    { max: 40, color: [214, 96, 77], label: '20 〜 40km' },
+    { max: Infinity, color: [103, 0, 31], label: '40km 以上' },
+  ];
+  const BW_STOPS = ['2', '3', '5', '7', '10', '15', '20', '30', '50'];
   const UNIT_LABEL = { pref: '都道府県', muni_city: '市区町村', muni_ward: '市区町村（政令市は区）' };
   const WEIGHT_LABEL = { s: 'サイト', t: 'ストール' };
   const METRIC = {
@@ -87,6 +96,8 @@
   const unitGeo = {};
   const chargerById = new Map();
   const scDensityCache = new Map();
+  const nearestCache = new Map();
+  const pdLoads = new Map();
   let bitmap = null, baseSwitcher = null;
 
   const GSI_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
@@ -176,7 +187,7 @@
   function readHash() {
     const ALLOWED = {
       mode: ['A', 'B', 'C'], unit: ['pref', 'muni_city', 'muni_ward'], metric: ['p', 'a', 'd', 'n'],
-      weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc', 'none'], bw: ['10', '30', '50'],
+      weight: ['s', 't'], status: ['o', 'a'], layer: ['ratio', 'pop', 'sc', 'near', 'none'], bw: BW_STOPS,
       rankMin: ['0', '50000', '100000', '300000'], showSc: ['0', '1'], popAlpha: ['0', '1'],
       tesla: ['0', '1'], flash: ['0', '1'], expressway: ['0', '1'], roadFacilities: ['0', '1'],
       facilityIc: ['0', '1'], facilityJct: ['0', '1'], facilitySmart: ['0', '1'],
@@ -285,7 +296,6 @@
     const f = new Float32Array(buf);
     const col = (i) => f.subarray(i * n, (i + 1) * n);
     const m = { n, lon: col(0), lat: col(1), pop: col(2), pd: {} };
-    meta.bandwidths_km.forEach((bw, k) => { m.pd[bw] = col(3 + k); });
     const dlon = 45 / 3600, dlat = 30 / 3600;
     let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
     for (let i = 0; i < n; i++) {
@@ -345,6 +355,52 @@
     }
     const res = { sd: out, total };
     scDensityCache.set(key, res);
+    return res;
+  }
+
+  function loadPd(bw) {
+    const key = String(bw);
+    if (mesh.pd[key]) return Promise.resolve(mesh.pd[key]);
+    if (!pdLoads.has(key)) {
+      const file = meshMeta.pd_files?.[key];
+      const p = file
+        ? fetch(`data/${file}`, { cache: 'no-cache' }).then((r) => {
+          if (!r.ok) throw new Error(`${file}: ${r.status}`);
+          return r.arrayBuffer();
+        }).then((buf) => (mesh.pd[key] = new Float32Array(buf)))
+        : Promise.reject(new Error(`no population density for σ=${key}km`));
+      p.catch(() => pdLoads.delete(key));
+      pdLoads.set(key, p);
+    }
+    return pdLoads.get(key);
+  }
+
+  // Straight-line distance (km) from each mesh cell to the nearest active charger.
+  function nearestCharger(status) {
+    const key = `${status}|${state.tesla}|${state.flash}`;
+    if (nearestCache.has(key)) return nearestCache.get(key);
+    const sites = activeSites();
+    const sx = new Float64Array(sites.length), sy = new Float64Array(sites.length);
+    sites.forEach((f, j) => { [sx[j], sy[j]] = f.geometry.coordinates; });
+    const dist = new Float32Array(mesh.n), idx = new Int32Array(mesh.n).fill(-1);
+    const ky = 110.574;
+    for (let i = 0; i < mesh.n; i++) {
+      const lon = mesh.lon[i], lat = mesh.lat[i];
+      const kx = 111.32 * Math.cos(lat * Math.PI / 180);
+      let best = Infinity, bj = -1;
+      for (let j = 0; j < sx.length; j++) {
+        const dy = (sy[j] - lat) * ky;
+        const dy2 = dy * dy;
+        if (dy2 >= best) continue;
+        const dx = (sx[j] - lon) * kx;
+        const d2 = dx * dx + dy2;
+        if (d2 < best) { best = d2; bj = j; }
+      }
+      dist[i] = Math.sqrt(best);
+      idx[i] = bj;
+    }
+    const res = { dist, idx, sites };
+    nearestCache.set(key, res);
     return res;
   }
 
@@ -661,6 +717,9 @@
       },
     });
     $('#pop-alpha').addEventListener('change', (e) => { state.popAlpha = e.target.checked; render(); });
+    const slider = $('#bw-slider');
+    slider.addEventListener('input', () => { $('#bw-value').textContent = `σ=${BW_STOPS[slider.value]}km`; });
+    slider.addEventListener('change', () => { state.bw = BW_STOPS[slider.value]; render(); });
   }
 
   function syncUi() {
@@ -692,9 +751,11 @@
     $('#use-flash').checked = state.flash;
     baseSwitcher?.sync();
     $('#pop-alpha').checked = state.popAlpha;
+    $('#bw-slider').value = String(BW_STOPS.indexOf(state.bw));
+    $('#bw-value').textContent = `σ=${state.bw}km`;
     const meshDensityShown = state.mode === 'B' && (state.layer === 'ratio' || state.layer === 'sc');
     $('#ctl-bw').hidden = !meshDensityShown;
-    $('#ctl-pop-alpha').hidden = !meshDensityShown;
+    $('#ctl-pop-alpha').hidden = !(meshDensityShown || (state.mode === 'B' && state.layer === 'near'));
     const weightUsed = state.mode === 'A' ? state.metric !== 'd' : meshDensityShown;
     $('#ctl-weight').hidden = !weightUsed;
     $('#result-guide').hidden = state.mode === 'C' || (state.mode === 'B' && state.layer === 'none');
@@ -876,7 +937,20 @@
       return;
     }
     const bw = Number(state.bw);
-    const pd = mesh.pd[bw];
+    const pd = mesh.pd[state.bw];
+    if (state.layer === 'ratio' && !pd) {
+      $('#metric-note').textContent = `σ=${state.bw}km の人口分布を読み込んでいます…`;
+      const want = state.bw;
+      loadPd(want).then(() => {
+        if (state.mode === 'B' && state.layer === 'ratio' && state.bw === want) renderB();
+      }).catch((e) => {
+        console.error(e);
+        $('#metric-note').textContent = 'σの人口分布を読み込めませんでした。再読み込みしてください。';
+      });
+      return;
+    }
+    if (state.layer === 'near') return renderNear();
+    if (!pd) loadPd(state.bw).catch(() => {});
     const { sd, total } = scDensity(bw, state.status, state.weight);
     const P = meshMeta.population_total;
     const k = total / P;
@@ -922,13 +996,14 @@
           const py = Math.floor((bounds[3] - info.coordinate[1]) / (30 / 3600));
           const i = px >= 0 && py >= 0 && px < W && py < H ? lookup[py * W + px] : -1;
           if (i < 0) { tip.hidden = true; return; }
-          const ratio = sd[i] / (pd[i] * k);
+          const ratio = pd ? sd[i] / (pd[i] * k) : NaN;
+          const pdi = mesh.pd[state.bw]?.[i];
           const unit = state.weight === 't' ? 'ストール' : 'サイト';
           const r = map.getCanvas().getBoundingClientRect();
           showTip({ clientX: r.left + info.x, clientY: r.top + info.y }, `人口（このメッシュ）：${nf.format(Math.round(mesh.pop[i]))} 人<br>
-            平滑化人口密度：${nf.format(Math.round(pd[i]))} 人/km²<br>
-            ${chargerLabel()}密度：${(sd[i] * 1000).toFixed(2)} ${unit}/1,000km²<br>
-            充足率：<b>${ratio < 0.01 ? '0.01 未満' : ratio.toFixed(2)}</b>`);
+            ${pdi === undefined ? '' : `平滑化人口密度：${nf.format(Math.round(pdi))} 人/km²<br>`}
+            ${chargerLabel()}密度：${(sd[i] * 1000).toFixed(2)} ${unit}/1,000km²
+            ${Number.isFinite(ratio) ? `<br>充足率：<b>${ratio < 0.01 ? '0.01 未満' : ratio.toFixed(2)}</b>` : ''}`);
         },
       })],
     });
@@ -936,7 +1011,7 @@
     const unit = state.weight === 't' ? 'ストール' : 'サイト';
     if (state.layer === 'ratio') {
       legend(`充足率（実際の${chargerLabel()}密度 ÷ 人口比どおりの密度）`, RATIO_CLASSES.map((c) => ({ css: rgb(c.color), label: c.label })));
-      $('#metric-note').textContent = `人口分布どおりに${chargerLabel()}が配置されていた場合の密度に対する、実際の密度の比です。1未満は人口のわりに少ない地域です。人口と充電器の双方を同じ幅（σ=${state.bw}km）のガウスカーネルで平滑化しています。`;
+      $('#metric-note').textContent = `人口分布どおりに${chargerLabel()}が配置されていた場合の密度に対する、実際の密度の比です。1未満は人口のわりに少ない地域です。人口と充電器の双方を同じ幅（σ=${state.bw}km）のガウスカーネルで平滑化しています。${bw <= 5 ? '幅が小さいと充電器から離れたメッシュはほぼ0になり、まだらに見えます。空白地帯の把握には「最寄り距離」も参考にしてください。' : ''}`;
       $('#summary').innerHTML = `
         <div>充足率 0.5 未満の地域に住む人口</div>
         <div class="big">${fmtPop(popLow)}（${(popLow / P * 100).toFixed(1)}%）</div>
@@ -952,6 +1027,62 @@
       $('#metric-note').textContent = `${chargerLabel()}の${unit}数を幅σ=${state.bw}kmのガウスカーネルで平滑化した密度です。`;
       $('#summary').innerHTML = '';
     }
+  }
+
+  function renderNear() {
+    const { dist, idx, sites } = nearestCharger(state.status);
+    const P = meshMeta.population_total;
+    const { W, H, pix, lookup, bounds } = mesh.grid;
+    const img = new ImageData(W, H);
+    const d = img.data;
+    const bandPop = new Float64Array(NEAR_CLASSES.length);
+    for (let i = 0; i < mesh.n; i++) {
+      let b = NEAR_CLASSES.findIndex((cl) => dist[i] < cl.max);
+      if (b < 0) b = NEAR_CLASSES.length - 1;
+      bandPop[b] += mesh.pop[i];
+      const c = NEAR_CLASSES[b].color;
+      const a = state.popAlpha ? 0.25 + 0.75 * Math.min(1, Math.log10(mesh.pop[i] + 1) / 3.5) : 0.9;
+      const o = pix[i] * 4;
+      d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = Math.round(a * 235);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    canvas.getContext('2d').putImageData(img, 0, 0);
+    bitmap = canvas;
+    overlay.setProps({
+      layers: [new deck.BitmapLayer({
+        id: `mesh-near-${state.status}-${state.tesla}-${state.flash}-${state.popAlpha}`,
+        image: bitmap,
+        bounds,
+        _imageCoordinateSystem: deck.COORDINATE_SYSTEM.LNGLAT,
+        textureParameters: { minFilter: 'nearest', magFilter: 'nearest' },
+        pickable: true,
+        beforeId: 'expressway-casing',
+        onHover: (info) => {
+          const tip = $('#tooltip');
+          if (!info.coordinate) { tip.hidden = true; return; }
+          const px = Math.floor((info.coordinate[0] - bounds[0]) / (45 / 3600));
+          const py = Math.floor((bounds[3] - info.coordinate[1]) / (30 / 3600));
+          const i = px >= 0 && py >= 0 && px < W && py < H ? lookup[py * W + px] : -1;
+          if (i < 0 || idx[i] < 0) { tip.hidden = true; return; }
+          const s = sites[idx[i]].properties;
+          const r = map.getCanvas().getBoundingClientRect();
+          showTip({ clientX: r.left + info.x, clientY: r.top + info.y }, `最寄りの${chargerLabel()}まで：<b>${dist[i] < 10 ? dist[i].toFixed(1) : Math.round(dist[i])} km</b>（直線）<br>
+            ${esc(s.name || '')}<br>
+            人口（このメッシュ）：${nf.format(Math.round(mesh.pop[i]))} 人`);
+        },
+      })],
+    });
+    legend(`最寄りの${chargerLabel()}までの直線距離`, NEAR_CLASSES.map((c) => ({ css: rgb(c.color), label: c.label })));
+    $('#metric-note').textContent = `各1kmメッシュの中心から、最寄りの${chargerLabel()}（${state.status === 'a' ? '計画・建設中を含む' : '営業中'}）までの直線距離です。道路距離や高速道路の出入口は考慮していません。平滑化はしていないので、密集地の数kmの空白もそのまま表れます。`;
+    const far = (km) => bandPop.reduce((s, v, b) => s + (NEAR_CLASSES[b].max > km ? v : 0), 0);
+    const row = (km) => { const v = far(km); return `${fmtPop(v)}（${(v / P * 100).toFixed(1)}%）`; };
+    $('#summary').innerHTML = `
+      <div>最寄りの充電器まで 10km 以上の地域に住む人口</div>
+      <div class="big">${row(10)}</div>
+      <div>20km 以上：${row(20)}</div>
+      <div>40km 以上：${row(40)}</div>
+      <div class="muted">5km 未満：${fmtPop(bandPop[0] + bandPop[1])}（${((bandPop[0] + bandPop[1]) / P * 100).toFixed(1)}%）／対象 ${nf.format(sites.length)} サイト</div>`;
   }
 
   // ---------- helpers ----------

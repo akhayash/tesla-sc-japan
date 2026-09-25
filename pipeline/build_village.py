@@ -105,11 +105,9 @@ def main() -> None:
                       key=lambda c: -city[c]["pop"])
     still_isolated = [c for c in isolated if city[c]["a_a_t"] == 0]
 
-    buf = np.fromfile(OUT / "mesh.bin", dtype="<f4")
-    n = len(mesh)
     meta = json.loads((OUT / "mesh_meta.json").read_text(encoding="utf-8"))
-    k = meta["columns"].index(f"pd{int(SIGMA_KM)}")
-    ratio = smoothed_ratio(mesh, sets["o"], buf[k * n:(k + 1) * n])
+    pd_sigma = np.fromfile(OUT / meta["pd_files"][str(int(SIGMA_KM))], dtype="<f4")
+    ratio = smoothed_ratio(mesh, sets["o"], pd_sigma)
     low = ratio < 0.5
     import geopandas as gpd
     city_gdf = gpd.read_file(ba.WORK / "muni_city.gpkg")

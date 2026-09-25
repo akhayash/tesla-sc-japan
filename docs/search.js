@@ -87,7 +87,7 @@
       const net = p.network === 'flash' ? 'flash' : 'tesla';
       const label = String(p.name || '').replace(/, Japan\b/, '');
       const status = p.group === 'open' ? '' : '（計画中）';
-      add(net, label + status, net === 'flash' ? p.address : p.facility, f.geometry.coordinates, { id: p.id, alt: `${p.facility || ''} ${p.address || ''}` });
+      add(net, label + status, net === 'flash' ? p.address : p.facility, f.geometry.coordinates, { id: p.id, planned: p.group !== 'open', alt: `${p.facility || ''} ${p.address || ''}` });
     }
     for (const f of roadFacilities.features) {
       const p = f.properties;
@@ -108,8 +108,10 @@
     const tk = tokens(q);
     if (!tk.length) return [];
     const full = tk.join('');
+    const flt = chargerFilter();
     const out = [];
     for (const e of index) {
+      if ((e.kind === 'tesla' || e.kind === 'flash') && (!flt[e.kind] || (e.planned && !flt.planned))) continue;
       let score;
       if (e.n === full) score = 0;
       else if (e.n.startsWith(full)) score = 1;
@@ -359,14 +361,20 @@
     if (!current) { card.hidden = true; return; }
     const r = current;
     const { sc } = opts.getData();
-    const open = sc.features.filter((f) => f.properties.group === 'open' && String(f.properties.id) !== String(r.id))
+    const flt = chargerFilter();
+    const netOf = (f) => (f.properties.network === 'flash' ? 'flash' : 'tesla');
+    const open = sc.features.filter((f) => f.properties.group === 'open' && flt[netOf(f)] && String(f.properties.id) !== String(r.id))
       .map((f) => ({ f, d: km(r.coords, f.geometry.coordinates) })).sort((a, b) => a.d - b.d);
-    const nearest = (net) => open.find((o) => (o.f.properties.network || 'tesla') === net);
+    const nearest = (net) => open.find((o) => netOf(o.f) === net);
     const t = nearest('tesla'), fl = nearest('flash');
     const near3 = open.slice(0, 3).map(({ f, d }) => {
-      const p = f.properties, net = p.network === 'flash' ? 'flash' : 'tesla';
+      const p = f.properties, net = netOf(f);
       return `<li><button type="button" data-charger="${esc(p.id)}"><i class="${net}"></i><span>${esc(String(p.name).replace(/, Japan\b/, ''))}</span><b>${fmtKm(d)}</b></button></li>`;
     }).join('');
+    const nearHtml = [
+      flt.tesla ? `<span><i class="tesla"></i>最寄りTesla SC <b>${t ? fmtKm(t.d) : '−'}</b></span>` : '',
+      flt.flash ? `<span><i class="flash"></i>最寄りFLASH <b>${fl ? fmtKm(fl.d) : '−'}</b></span>` : '',
+    ].join('');
     const k = KIND[r.kind];
     const hzHits = (r.hz || []).filter((h) => !h.error);
     const hzFailed = (r.hz || []).some((h) => h.error);
@@ -381,7 +389,7 @@
     card.innerHTML = `
       <div class="ms-card-head"><span class="ms-k" aria-hidden="true">${k.icon}</span><div><strong>${esc(r.label)}</strong><small>${esc(k.label)}${r.sub ? `・${esc(r.sub)}` : ''}</small></div>
         <button type="button" class="ms-card-close" aria-label="検索結果を閉じる">×</button></div>
-      <div class="ms-near"><span><i class="tesla"></i>最寄りTesla SC <b>${t ? fmtKm(t.d) : '−'}</b></span><span><i class="flash"></i>最寄りFLASH <b>${fl ? fmtKm(fl.d) : '−'}</b></span></div>
+      <div class="ms-near">${nearHtml}</div>
       <ol class="ms-near-list">${near3}</ol>
       <div class="ms-note">距離は直線。${r.bbox ? '市区町村・都道府県は代表点から測定。' : ''}</div>
       ${hzHtml}`;
@@ -416,7 +424,8 @@
   }
 
   // ---------- public ----------
-  let lastHazardMode = false;
+  let lastKey = '';
+  const chargerFilter = () => ({ tesla: true, flash: true, planned: true, ...(opts.getChargerFilter?.() || {}) });
   function init(o) {
     opts = o;
     map = o.map;
@@ -425,10 +434,12 @@
   }
   function update() {
     if (!opts) return;
-    const hm = opts.isHazardMode();
-    if (hm !== lastHazardMode) {
-      lastHazardMode = hm;
+    const f = chargerFilter();
+    const key = `${opts.isHazardMode()}|${f.tesla}|${f.flash}|${f.planned}`;
+    if (key !== lastKey) {
+      lastKey = key;
       if (current) renderCard();
+      if (!list.hidden && rows.every((r) => r.kind !== 'gsi' && r.kind !== 'osm')) suggest();
     }
   }
   window.MapSearch = { init, update, search: (q) => { input.value = q; return submit(); } };

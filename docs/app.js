@@ -152,6 +152,7 @@
     bindUi();
     window.MapSearch?.init({
       map, openCharger: flyToCharger, isHazardMode: () => state.mode === 'C',
+      getChargerFilter: () => ({ tesla: state.tesla, flash: state.flash, planned: state.status === 'a' }),
       getData: () => ({ sc, roadFacilities: roadFacilityData, stats, unitGeo }),
     });
     render();

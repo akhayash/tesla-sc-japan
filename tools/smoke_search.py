@@ -111,6 +111,30 @@ with sync_playwright() as p:
     if page.locator(".ms-pin").count() or page.is_visible(".ms-card") or box.input_value():
         errors.append("stale remote result reappeared after clearing")
 
+    # 8) charger results follow the panel's network toggles
+    net = ctx.new_page()
+    net.goto(BASE + "#mode=B&tesla=1&flash=0")
+    net.wait_for_selector("#loading[hidden]", state="attached", timeout=60000)
+    nbox = net.locator("#map-search-input")
+    nbox.fill("wash")
+    net.wait_for_timeout(400)
+    if net.locator(".ms-list li.kind-flash").count():
+        errors.append("FLASH chargers suggested while FLASH is off")
+    nbox.fill("札幌市")
+    net.wait_for_selector(".ms-list li.kind-muni", timeout=5000)
+    net.keyboard.press("Enter")
+    net.wait_for_selector(".ms-card", timeout=5000)
+    card_txt = net.inner_text(".ms-card")
+    if net.locator(".ms-near-list i.flash").count() or "FLASH" in card_txt:
+        errors.append("FLASH shown in nearest list while FLASH is off")
+    net.click("label.network-option.flash")
+    net.wait_for_timeout(500)
+    if "FLASH" not in net.inner_text(".ms-card"):
+        errors.append("card did not refresh after enabling FLASH")
+    nbox.fill("wash")
+    net.wait_for_selector(".ms-list li.kind-flash", timeout=5000)
+    print("network filter: ok")
+
     mobile = browser.new_page(viewport={"width": 390, "height": 844})
     mobile.goto(BASE)
     mobile.wait_for_selector("#loading[hidden]", state="attached", timeout=60000)

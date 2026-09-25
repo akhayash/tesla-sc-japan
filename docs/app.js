@@ -150,6 +150,10 @@
     renderBrandMeta();
     setupMap();
     bindUi();
+    window.MapSearch?.init({
+      map, openCharger: flyToCharger, isHazardMode: () => state.mode === 'C',
+      getData: () => ({ sc, roadFacilities: roadFacilityData, stats, unitGeo }),
+    });
     render();
     $('#loading').hidden = true;
     restoreSelection();
@@ -500,12 +504,7 @@
     window.HazardOverlay?.init({
       map, beforeId: 'expressway-casing', ringBeforeId: 'sc-points',
       getActiveSites: activeSites,
-      openCharger: (id) => {
-        const c = chargerById.get(String(id));
-        if (!c) return;
-        map.flyTo({ center: c.coords, zoom: Math.max(map.getZoom(), 13), duration: 900 });
-        map.once('moveend', () => openPlacePopup(`c:${id}`, c.coords, chargerPopupHtml(c.props, c.coords)));
-      },
+      openCharger: flyToCharger,
     });
 
     const tip = $('#tooltip');
@@ -552,6 +551,13 @@
         popup.setLngLat(e.lngLat).setHTML(`<h3>${esc(p.name || p.type)}</h3><div>${esc(p.type)}</div>`).addTo(map);
       });
     }
+  }
+
+  function flyToCharger(id) {
+    const c = chargerById.get(String(id));
+    if (!c) return;
+    map.flyTo({ center: c.coords, zoom: Math.max(map.getZoom(), 13), duration: 900 });
+    map.once('moveend', () => openPlacePopup(`c:${id}`, c.coords, chargerPopupHtml(c.props, c.coords)));
   }
 
   function showTip(ev, html) {
@@ -721,6 +727,7 @@
     if (state.mode === 'A') renderA();
     else if (state.mode === 'B') renderB();
     else renderC();
+    window.MapSearch?.update();
   }
 
   // ---------- Hazard tab ----------

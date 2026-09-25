@@ -764,3 +764,107 @@ footer { padding: 2px 2px 0; }
 .panel-header .quick-links a { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 10px; color: #4f5661; }
 .panel-header .quick-links a:hover { color: var(--text); background: var(--surface-subtle); }
 .panel-header .quick-links svg { width: 17px; height: 17px; fill: currentColor; }
+
+/* ---------- map search ---------- */
+.maplibregl-ctrl-top-left .map-search { margin: 12px 0 0 54px; }
+body.panel-collapsed .maplibregl-ctrl-top-left .map-search { margin-left: 54px; }
+.map-search {
+  width: min(360px, calc(100vw - var(--panel-width) - 130px));
+  min-width: 240px;
+  font-size: 13px;
+  pointer-events: auto;
+}
+body.panel-collapsed .map-search { width: min(360px, calc(100vw - 130px)); }
+.ms-bar {
+  display: flex; align-items: center; gap: 4px;
+  height: 38px; padding: 0 4px 0 10px;
+  background: rgba(255, 255, 255, .97);
+  border: 1px solid var(--border); border-radius: 11px;
+  box-shadow: 0 4px 14px rgba(16, 24, 40, .12);
+}
+.ms-bar:focus-within { border-color: #8aa4c8; box-shadow: 0 0 0 3px rgba(9, 105, 218, .15), 0 4px 14px rgba(16, 24, 40, .12); }
+.ms-ico { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+.ms-bar input {
+  flex: 1; min-width: 0; height: 100%; padding: 0 4px;
+  border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; color: var(--text);
+}
+.ms-bar input::-webkit-search-cancel-button { display: none; }
+.ms-clear, .ms-geo {
+  flex: none; width: 30px; height: 30px; padding: 0; display: grid; place-items: center;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 18px; cursor: pointer;
+}
+.ms-clear:hover, .ms-geo:hover { background: #eef1f4; color: var(--text); }
+.ms-geo svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ms-geo { border-left: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+.ms-list {
+  list-style: none; margin: 6px 0 0; padding: 4px;
+  max-height: min(380px, 55vh); overflow-y: auto;
+  background: #fff; border: 1px solid var(--border); border-radius: 11px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, .16);
+}
+.ms-list li[data-i] {
+  display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 8px;
+  padding: 7px 8px; border-radius: 8px; cursor: pointer;
+}
+.ms-list li[data-i]:hover, .ms-list li.on { background: #eef4fc; }
+.ms-k { font-size: 15px; text-align: center; line-height: 1; }
+.ms-t { min-width: 0; }
+.ms-t b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-t small { display: block; color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-list em { font-style: normal; font-size: 10px; color: var(--muted); background: #f1f3f5; padding: 2px 6px; border-radius: 99px; white-space: nowrap; }
+.ms-list li.kind-tesla em { color: #b0122b; background: var(--accent-soft); }
+.ms-list li.kind-flash em { color: #1d4ed8; background: #eaf1ff; }
+.ms-list li.kind-osm em, .ms-list li.kind-gsi em { color: #0f766e; background: #e6f6f4; }
+.ms-status, .ms-more { padding: 8px 10px; color: var(--muted); font-size: 12px; }
+.ms-more { cursor: pointer; border-top: 1px dashed var(--border); margin-top: 2px; }
+.ms-more:hover { color: #0969da; }
+.ms-hint {
+  margin-top: 6px; padding: 7px 10px; font-size: 12px;
+  background: #fff; border: 1px solid var(--border); border-radius: 9px; box-shadow: var(--shadow);
+}
+.ms-card {
+  margin-top: 8px; padding: 10px 12px 10px;
+  background: rgba(255, 255, 255, .98); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, .14);
+}
+.ms-list:not([hidden]) ~ .ms-card { display: none; }
+.ms-card-head { display: grid; grid-template-columns: 22px 1fr 26px; gap: 8px; align-items: start; }
+.ms-card-head strong { display: block; font-size: 14px; line-height: 1.3; }
+.ms-card-head small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
+.ms-card-close { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 17px; cursor: pointer; }
+.ms-card-close:hover { background: #eef1f4; color: var(--text); }
+.ms-near { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 9px 0 4px; font-size: 12px; color: #3d444d; }
+.ms-near b { font-size: 13px; color: var(--text); margin-left: 2px; }
+.ms-card i.tesla, .ms-card i.flash { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e31937; margin-right: 5px; vertical-align: 1px; }
+.ms-card i.flash { background: #0969da; }
+.ms-near-list { list-style: none; margin: 0; padding: 0; }
+.ms-near-list button {
+  width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 2px;
+  padding: 5px 6px; border: 0; border-radius: 7px; background: transparent; font: inherit; font-size: 12px; text-align: left; cursor: pointer; color: var(--text);
+}
+.ms-near-list button:hover { background: #f1f4f8; }
+.ms-near-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-near-list b { font-variant-numeric: tabular-nums; color: #3d444d; font-weight: 600; }
+.ms-note { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+.ms-hz { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; }
+.ms-hz.muted, .ms-hz .muted { color: var(--muted); }
+.ms-hz-title { font-weight: 700; font-size: 11px; letter-spacing: .04em; color: #57606a; margin-bottom: 4px; }
+.ms-hz ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.ms-hz li { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px; align-items: center; }
+.ms-hz li i { width: 10px; height: 10px; border-radius: 3px; }
+.ms-pin {
+  width: 26px; height: 34px;
+  background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 34'%3E%3Cpath d='M13 33s11-11.2 11-19.5A11 11 0 0 0 2 13.5C2 21.8 13 33 13 33z' fill='%2317191c' stroke='%23fff' stroke-width='2'/%3E%3Ccircle cx='13' cy='13.5' r='4.2' fill='%23fff'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .3));
+}
+.ms-pin.here {
+  width: 18px; height: 18px; border-radius: 50%; background: #0969da; border: 3px solid #fff;
+  box-shadow: 0 0 0 6px rgba(9, 105, 218, .22), 0 2px 6px rgba(0, 0, 0, .3); filter: none;
+}
+@media (max-width: 760px) {
+  .map-search, body.panel-collapsed .map-search { width: calc(100vw - 118px); min-width: 0; }
+  .maplibregl-ctrl-top-left .map-search { margin-left: 12px; }
+  body.panel-collapsed .maplibregl-ctrl-top-left .map-search { margin-left: 54px; }
+  .ms-list { max-height: 34vh; }
+  .ms-card { max-height: 30vh; overflow-y: auto; }
+}

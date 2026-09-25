@@ -37,6 +37,8 @@
 
 ### 災害リスク（地図の3つ目のタブ）
 充電拠点の位置に、国土交通省「重ねるハザードマップ」の災害想定（洪水・浸水継続時間・家屋倒壊等氾濫・内水・高潮・津波・土砂災害・雪崩）を複数選んで重ねられます（「見やすい配色」で公式凡例の色を高コントラストに置き換え可能）。各拠点の登録座標でズーム17のタイル画素を公式凡例と照合してリスク（高・中・低）を判定し（`pipeline/build_hazard.py` → `docs/data/sc_hazard.json`）、想定区域内の拠点一覧と「30km以内に代替拠点なし」を表示します。
+### 地図の検索
+地図左上の検索欄では、入力中は読み込み済みのデータ（充電拠点・都道府県・市区町村・IC/JCT/SA/PA・道の駅・モール）から即座に候補を表示します。表記ゆれ（全角半角・かなカナ）を吸収します。Enterキーを押すと、国土地理院 住所検索API（住所・地名）と Photon（OpenStreetMap。駅などの施設）に並列で問い合わせます。どちらも無料で、APIキーは不要です。前の問い合わせは取り消して古い結果は捨て、3秒で打ち切ります。選んだ地点を中心に表示し、最寄りの充電拠点までの直線距離と近い3件を表示します。「災害リスク」タブではその地点の災害想定も表示します。現在地ボタンもあります（`docs/search.js`）。
 
 ## データ出典
 サイト上の「[データと算出方法](https://akhayash.github.io/tesla-sc-japan/about.html)」ページに、出典・時点・利用条件・加工内容を掲載しています。
@@ -50,6 +52,7 @@
 - 周辺施設：© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors（ODbL 1.0）。コンビニ・モールは施設種別タグ、道の駅は登録名称「道の駅」で抽出
 - 高速を降りても追加料金なしの道の駅：[ETC総合情報ポータル「賢い料金」](https://www.go-etc.jp/michinoeki)、[NEXCO中日本「EV路外充電サービス 社会実験」](https://www.c-nexco.co.jp/corporate/pressroom/news_release/6508.html)（いずれも社会実験）
 - 災害情報：「[ハザードマップポータルサイト](https://disaportal.gsi.go.jp/)」（国土交通省）を加工して作成（公共データ利用規約 第1.0版）
+- 地図の検索：[国土地理院 住所検索API](https://maps.gsi.go.jp/help/howtouse.html)、[Photon](https://photon.komoot.io/)（© OpenStreetMap contributors）
 
 ## データ再生成
 
@@ -82,6 +85,7 @@ cd docs; python -m http.server 8765
 # 別ターミナルで（Microsoft Edge を使用）
 .\.venv\Scripts\python tools\smoke_test.py http://localhost:8765/ screenshots
 .\.venv\Scripts\python tools\smoke_hazard.py http://localhost:8765/ screenshots
+.\.venv\Scripts\python tools\smoke_search.py http://localhost:8765/ screenshots
 .\.venv\Scripts\python tools\smoke_village.py http://localhost:8765/ screenshots
 ```
 

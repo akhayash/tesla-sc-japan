@@ -274,5 +274,44 @@
     return `<div class="hz-pop"><div class="hz-pop-title">災害想定（登録位置）</div><table>${keys.map((k) => `<tr class="${st.layers.includes(k) ? 'on' : ''}"><td><i style="border-color:${LEVEL[hz[k].level].color}"></i>${esc(LAYERS[k].full)}</td><td>${esc(hz[k].label)}</td></tr>`).join('')}</table></div>`;
   }
 
-  window.HazardOverlay = { init, update, writeHash, popupHtml, bottomLayerId, setActive, isActive: () => active };
+  // Reads the z17 official tile pixel under a point for every layer (used by map search).
+  const PT_Z = 17;
+  async function pointHazard([lon, lat]) {
+    const n = 2 ** PT_Z;
+    const fx = ((lon + 180) / 360) * n;
+    const r = (lat * Math.PI) / 180;
+    const fy = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n;
+    const x = Math.floor(fx), y = Math.floor(fy);
+    const px = Math.min(255, Math.floor((fx - x) * 256)), py = Math.min(255, Math.floor((fy - y) * 256));
+    const out = await Promise.all(Object.entries(LAYERS).map(async ([k, l]) => {
+      try {
+        const res = await fetch(`https://disaportaldata.gsi.go.jp/raster/${l.path}/${PT_Z}/${x}/${y}.png`);
+        if (res.status === 404) return null;
+        if (!res.ok) return { key: k, error: true };
+        const bmp = await createImageBitmap(await res.blob());
+        const cv = new OffscreenCanvas(bmp.width, bmp.height);
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(bmp, 0, 0);
+        const [R, G, B, A] = ctx.getImageData(px, py, 1, 1).data;
+        if (A < 32) return null;
+        const lg = l.legend;
+        let best = -1, bd = Infinity;
+        lg.official.forEach((h, i) => {
+          const [r2, g2, b2] = hex(h);
+          const d = Math.hypot(R - r2, G - g2, B - b2);
+          if (d < bd) { bd = d; best = i; }
+        });
+        if (bd > MATCH_DIST) {
+          if (lg === DEPTH || lg === DURATION) return null;
+          best = 0;
+        }
+        return { key: k, name: l.name, full: l.full, label: lg.labels[best], color: lg.vis[best] };
+      } catch {
+        return { key: k, error: true };
+      }
+    }));
+    return out.filter(Boolean);
+  }
+
+  window.HazardOverlay = { init, update, writeHash, popupHtml, bottomLayerId, setActive, isActive: () => active, pointHazard };
 })();

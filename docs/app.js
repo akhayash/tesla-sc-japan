@@ -77,6 +77,8 @@
     smartToll: true,
     rankMin: '0', base: 'pale',
   };
+  let initialView = null, pendingSel = null, selectedId = null, selectedCoords = null;
+  let poiPromise = null, tollPromise = null;
   readHash();
 
   const $ = (s) => document.querySelector(s);
@@ -117,7 +119,7 @@
       sources: baseSources,
       layers: baseLayers,
     },
-    center: [137.5, 37.5], zoom: 4.6, minZoom: 3.5, maxZoom: 13,
+    center: initialView ? initialView.center : [137.5, 37.5], zoom: initialView ? Math.min(initialView.zoom, 13) : 4.6, minZoom: 3.5, maxZoom: 13,
     dragRotate: false, pitchWithRotate: false,
     attributionControl: {
       compact: false,
@@ -150,6 +152,7 @@
     bindUi();
     render();
     $('#loading').hidden = true;
+    restoreSelection();
   }).catch((e) => {
     $('#loading').textContent = 'データの読み込みに失敗しました。再読み込みしてください。';
     console.error(e);
@@ -184,13 +187,92 @@
       state[k] = typeof state[k] === 'boolean' ? v === '1' : v;
     }
     if (!state.tesla && !state.flash) state.tesla = true;
+    const at = (p.get('at') || '').split(',').map(Number);
+    if (at.length === 3 && at.every(Number.isFinite) && at[0] > 120 && at[0] < 155 && at[1] > 20 && at[1] < 50 && at[2] >= 3.5 && at[2] <= 17) {
+      initialView = { center: [at[0], at[1]], zoom: at[2] };
+    }
+    const sel = p.get('sel') || '';
+    if (sel.length <= 160 && /^(c|toll|poi):/.test(sel)) pendingSel = sel;
   }
   function writeHash() {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries(state)) p.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : v);
     window.HazardOverlay?.writeHash(p);
+    if (map) {
+      const c = map.getCenter();
+      p.set('at', `${c.lng.toFixed(4)},${c.lat.toFixed(4)},${map.getZoom().toFixed(2)}`);
+    }
+    if (selectedId) p.set('sel', selectedId);
     history.replaceState(null, '', '#' + p.toString());
   }
+
+  // ---------- shareable place links ----------
+  function openPlacePopup(id, coords, html) {
+    popup.setLngLat(coords).setHTML(html).addTo(map);
+    selectedId = id;
+    selectedCoords = coords;
+    writeHash();
+  }
+  function shareButtonHtml() {
+    return '<button type="button" class="share-link" data-share>🔗 この場所のリンクをコピー</button>';
+  }
+  function shareUrl() {
+    const url = new URL(location.href);
+    const p = new URLSearchParams(url.hash.slice(1));
+    if (selectedCoords) {
+      const z = Math.min(Math.max(map.getZoom(), 12), map.getMaxZoom());
+      p.set('at', `${selectedCoords[0].toFixed(5)},${selectedCoords[1].toFixed(5)},${z.toFixed(2)}`);
+    }
+    if (selectedId) p.set('sel', selectedId);
+    url.hash = p.toString();
+    return url.toString();
+  }
+  async function copyShareLink(button) {
+    const url = shareUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      const label = button.textContent;
+      button.textContent = '✓ リンクをコピーしました';
+      button.classList.add('copied');
+      setTimeout(() => { button.textContent = label; button.classList.remove('copied'); }, 2000);
+    } catch {
+      window.prompt('このURLをコピーしてください', url);
+    }
+  }
+  async function restoreSelection() {
+    if (initialView) map.jumpTo({ center: initialView.center, zoom: Math.min(initialView.zoom, map.getMaxZoom()) });
+    const sel = pendingSel;
+    pendingSel = null;
+    if (!sel) return;
+    const [kind, ...rest] = sel.split(':');
+    const key = rest.join(':');
+    let target = null;
+    if (kind === 'c') {
+      const c = chargerById.get(key);
+      if (c) target = { id: sel, coords: c.coords, html: () => chargerPopupHtml(c.props, c.coords) };
+    } else if (kind === 'toll') {
+      if (!state.smartToll) { state.smartToll = true; render(); }
+      renderSmartToll();
+      await tollPromise;
+      const i = tollData?.pairs.findIndex((p) => p.station === key) ?? -1;
+      if (i >= 0) target = { id: sel, coords: tollData.pairs[i].station_coords, html: () => tollPopupHtml(i) };
+    } else if (kind === 'poi') {
+      const [type, ll] = [key.split(':')[0], key.split(':')[1] || ''];
+      const t = POI_TYPES.find((x) => x.type === type);
+      const [lon, lat] = ll.split(',').map(Number);
+      if (t && Number.isFinite(lon) && Number.isFinite(lat)) {
+        if (!state[t.key]) { state[t.key] = true; render(); }
+        renderPoi();
+        await poiPromise;
+        const i = poiItems.findIndex((it) => it.t === type && Math.abs(it.coords[0] - lon) < 0.0003 && Math.abs(it.coords[1] - lat) < 0.0003);
+        if (i >= 0) target = { id: sel, coords: poiItems[i].coords, html: () => poiPopupHtml(i) };
+      }
+    }
+    if (!target) return;
+    if (!initialView) map.jumpTo({ center: target.coords, zoom: 12 });
+    openPlacePopup(target.id, target.coords, target.html());
+  }
+  const poiSelId = (item) => `poi:${item.t}:${item.coords[0].toFixed(5)},${item.coords[1].toFixed(5)}`;
 
   // ---------- data ----------
   function parseMesh(buf, meta) {
@@ -413,6 +495,8 @@
     overlay = new deck.MapboxOverlay({ interleaved: true, layers: [] });
     map.addControl(overlay);
     popup = new maplibregl.Popup({ closeButton: true, maxWidth: '300px' });
+    popup.on('close', () => { selectedId = null; selectedCoords = null; writeHash(); });
+    map.on('moveend', writeHash);
     window.HazardOverlay?.init({
       map, beforeId: 'expressway-casing', ringBeforeId: 'sc-points',
       getActiveSites: activeSites,
@@ -420,7 +504,7 @@
         const c = chargerById.get(String(id));
         if (!c) return;
         map.flyTo({ center: c.coords, zoom: Math.max(map.getZoom(), 13), duration: 900 });
-        map.once('moveend', () => popup.setLngLat(c.coords).setHTML(chargerPopupHtml(c.props, c.coords)).addTo(map));
+        map.once('moveend', () => openPlacePopup(`c:${id}`, c.coords, chargerPopupHtml(c.props, c.coords)));
       },
     });
 
@@ -450,7 +534,7 @@
       map.on('click', id, (e) => {
         const c = chargerById.get(String(e.features[0].properties.id));
         if (!c) return;
-        popup.setLngLat(c.coords).setHTML(chargerPopupHtml(c.props, c.coords)).addTo(map);
+        openPlacePopup(`c:${e.features[0].properties.id}`, c.coords, chargerPopupHtml(c.props, c.coords));
       });
     }
     for (const id of ['road-service-areas', 'road-junctions']) {
@@ -489,6 +573,8 @@
     document.addEventListener('click', (e) => {
       const fig = e.target.closest('[data-aerial-id]');
       if (fig) openAerialViewer(fig.dataset.aerialId);
+      const share = e.target.closest('[data-share]');
+      if (share) copyShareLink(share);
     });
     document.addEventListener('keydown', (e) => {
       const fig = e.target.closest?.('[data-aerial-id]');
@@ -1067,7 +1153,7 @@
           map.on('click', id, (e) => {
             const item = poiItems[e.features[0].properties.i];
             $('#tooltip').hidden = true;
-            if (item) popup.setLngLat(item.coords).setHTML(poiPopupHtml(e.features[0].properties.i)).addTo(map);
+            if (item) openPlacePopup(poiSelId(item), item.coords, poiPopupHtml(e.features[0].properties.i));
           });
         }
       }
@@ -1097,7 +1183,7 @@
   function renderPoi() {
     const enabled = POI_TYPES.filter((t) => state[t.key]);
     if (poiState !== 'ready') {
-      if (enabled.length && poiState === 'idle') loadPoi();
+      if (enabled.length && poiState === 'idle') poiPromise = loadPoi();
       return;
     }
     for (const t of POI_TYPES) {
@@ -1201,7 +1287,7 @@
         map.on('click', id, (e) => {
           const i = e.features[0].properties.i;
           $('#tooltip').hidden = true;
-          popup.setLngLat(tollData.pairs[i].station_coords).setHTML(tollPopupHtml(i)).addTo(map);
+          openPlacePopup(`toll:${tollData.pairs[i].station}`, tollData.pairs[i].station_coords, tollPopupHtml(i));
         });
       }
       tollState = 'ready';
@@ -1214,7 +1300,7 @@
 
   function renderSmartToll() {
     if (tollState !== 'ready') {
-      if (state.smartToll && tollState === 'idle') loadSmartToll();
+      if (state.smartToll && tollState === 'idle') tollPromise = loadSmartToll();
       return;
     }
     for (const id of ['toll-line-kashikoi', 'toll-line-ev', 'toll-ic', 'toll-station']) {
@@ -1253,6 +1339,7 @@
       </table>
       ${aerialHtml(`toll:${i}`, p.station_coords, { color: k.color })}
       ${linksHtml(placeLinks(p.station_coords))}
+      ${shareButtonHtml()}
       <div class="muted poi-source">出典：<a href="${esc(p.source)}" target="_blank" rel="noopener">${p.kind === 'ev' ? 'NEXCO中日本' : 'ETC総合情報ポータル'}</a>（社会実験のため変更・終了の可能性あり）</div>
     </div>`;
   }
@@ -1276,6 +1363,7 @@
       <div class="muted">${type.label}</div>
       ${aerialHtml(`poi:${index}`, item.coords, { color: style?.color || type.color })}
       ${linksHtml(placeLinks(item.coords))}
+      ${shareButtonHtml()}
       <div class="muted poi-source">施設情報：${OSM_ATTR}</div>
     </div>`;
   }
@@ -1435,6 +1523,7 @@
       <div class="muted">${sub}</div>
       ${aerialHtml(p.id, coords, { note: flash ? '位置は住所から推定' : '', color: NETWORK_COLOR[flash ? 'flash' : 'tesla'] })}
       ${linksHtml(chargerLinks(p, coords))}
+      ${shareButtonHtml()}
       <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
       <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
       ${state.mode === 'C' && window.HazardOverlay ? window.HazardOverlay.popupHtml(p.id) : ''}

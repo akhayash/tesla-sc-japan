@@ -24,6 +24,7 @@ CASES = {
     "b_sc": "#mode=B&layer=sc&bw=10&status=a&weight=s",
     "b_none": "#mode=B&layer=none",
     "b_flash_ratio": "#mode=B&layer=ratio&bw=30&tesla=0&flash=1",
+    "share_charger": "#mode=B&layer=none&at=139.63,35.46,13&sel=c:6564",
 }
 
 errors: list[str] = []
@@ -118,6 +119,12 @@ with sync_playwright() as p:
             print("tooltip:", tips)
             if not any(tips):
                 errors.append("mesh tooltip never appeared")
+        if name == "share_charger":
+            popup = page.locator(".maplibregl-popup-content")
+            if not popup.count() or not popup.locator("[data-share]").count():
+                errors.append("shared charger link did not reopen its popup with a share button")
+            elif "sel=c%3A6564" not in page.url and "sel=c:6564" not in page.url:
+                errors.append("selected place was not kept in the URL")
         if name == "b_none":
             if page.locator('[data-key="layer"] button.active').count():
                 errors.append("no-mesh state was not restored from URL")

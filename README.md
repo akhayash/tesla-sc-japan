@@ -99,6 +99,17 @@ GitHub Actions（`.github/workflows/update-sc.yml`）が毎週月曜 03:00（JST
 - ローカルで更新：`cd pipeline; ..\.venv\Scripts\python update_sc.py` → 変更をコミットして push
 - 国勢調査の更新時など全データを作り直す場合は `run_all.py` を実行します。
 
+## バージョンとリリース
+サイトの機能は [Semantic Versioning](https://semver.org/lang/ja/) で管理します（充電器データの週次自動更新はバージョンに含めません）。変更履歴は [CHANGELOG.md](CHANGELOG.md)、サイト上の [リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)、[GitHub Releases](https://github.com/akhayash/tesla-sc-japan/releases) で公開しています。
+
+元データは `docs/data/releases.json` の1か所だけです（新しい順）。リリースの手順は次のとおりです。
+
+1. `docs/data/releases.json` の先頭に新しい版を追加します。`version` と `date` と `title` に加え、`added`／`changed`／`fixed`／`removed` のうち該当するものを書きます。番号の上げ方：機能の追加は minor、不具合の修正や見た目の調整は patch、URLやデータ形式の互換性が崩れる変更は major。
+2. `.\.venv\Scripts\python tools\release.py changelog` で `CHANGELOG.md` を再生成し、機能の変更と同じコミットに含めて main に push します。
+3. GitHub Actions（`.github/workflows/release.yml`）が `releases.json` の変更を検知し、`check` で検証します。そのうえで最新版のタグ（`vX.Y.Z`）を push されたコミットに付け、同じ内容で GitHub Release を作成します。既にタグがある版は何もしません。
+
+パネルのタイトル横とデータの出典ページのバージョン表示は `docs/version.js` が `releases.json` から読み込むため、手作業での更新は不要です。
+
 ## 留意点
 - 急速充電器は長距離移動時の経路充電にも使われるため、人口だけで需要を表すものではありません（高速道路網・観光需要・EV保有台数は未反映）。
 - 距離は直線距離です。

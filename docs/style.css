@@ -930,3 +930,11 @@ body.panel-collapsed .map-search { width: min(360px, calc(100vw - 130px)); }
   .bs-panel button { width: 50px; }
   .bs-panel button::before, .bs-panel img { width: 46px; height: 46px; }
 }
+
+/* ---------- app version chip ---------- */
+.app-version {
+  display: inline-block; margin-left: 4px; padding: 1px 7px; vertical-align: 3px;
+  font: 600 10.5px/1.5 ui-monospace, Consolas, monospace; letter-spacing: 0;
+  color: #57606a; background: #eef1f4; border: 1px solid #dde2e8; border-radius: 99px; text-decoration: none;
+}
+.app-version:hover { color: var(--accent); border-color: #f3b1bb; background: var(--accent-soft); }

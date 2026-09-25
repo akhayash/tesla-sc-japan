@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>リリースノート｜充電アクセスマップ</title>
+  <meta name="description" content="充電アクセスマップ（日本のテスラ スーパーチャージャー・FLASH と人口分布の可視化）の変更履歴です。">
+  <link rel="icon" href="favicon.svg?v=2" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png?v=2" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+  <style>
+    body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif; color: #1f2328; margin: 0; line-height: 1.75; background: #f5f6f8; }
+    main { max-width: 820px; margin: 0 auto; padding: 24px 20px 56px; }
+    h1 { font-size: 22px; margin: 8px 0 4px; }
+    a { color: #0969da; }
+    .back { font-size: 13px; }
+    .muted { color: #57606a; font-size: 13px; }
+    .rel { position: relative; background: #fff; border: 1px solid #e1e5ea; border-radius: 14px; padding: 18px 22px 14px; margin: 18px 0; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.04); }
+    .rel.latest { border-color: #f3b1bb; }
+    .rel-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+    .rel-head h2 { margin: 0; font-size: 19px; letter-spacing: .01em; }
+    .rel-head .ver { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: #e31937; }
+    .rel-head time { color: #57606a; font-size: 13px; }
+    .badge { font-size: 11px; font-weight: 700; color: #fff; background: #e31937; border-radius: 99px; padding: 1px 8px; }
+    .rel-title { margin: 2px 0 8px; font-weight: 700; font-size: 15px; }
+    .sec { margin: 8px 0 0; }
+    .sec h3 { display: inline-block; margin: 0 0 2px; font-size: 11px; letter-spacing: .06em; padding: 1px 8px; border-radius: 6px; }
+    .sec.added h3 { color: #116329; background: #dafbe1; }
+    .sec.changed h3 { color: #0550ae; background: #ddf4ff; }
+    .sec.fixed h3 { color: #953800; background: #fff1e5; }
+    .sec.removed h3 { color: #82071e; background: #ffebe9; }
+    .sec ul { margin: 2px 0 6px; padding-left: 1.3em; font-size: 14px; }
+    .rel-foot { margin-top: 8px; font-size: 12px; }
+    .rel-foot a { color: #57606a; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="back"><a href="./">← 地図に戻る</a> ・ <a href="about.html">データと算出方法</a></p>
+  <h1>リリースノート</h1>
+  <p class="muted">サイトの機能の変更履歴です。バージョンは <a href="https://semver.org/lang/ja/" target="_blank" rel="noopener">Semantic Versioning</a> に従います。充電器データは毎週自動で更新しており、データの更新はバージョンに含めません。<a href="https://github.com/akhayash/tesla-sc-japan/releases" target="_blank" rel="noopener">GitHub のリリース</a>でも同じ内容を公開しています。</p>
+  <div id="releases"><p class="muted">読み込み中…</p></div>
+</main>
+<script>
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const SECTIONS = [['added', '追加'], ['changed', '変更'], ['fixed', '修正'], ['removed', '削除']];
+  const REPO = 'https://github.com/akhayash/tesla-sc-japan';
+  fetch('data/releases.json', { cache: 'no-cache' }).then((r) => r.json()).then(({ releases }) => {
+    document.getElementById('releases').innerHTML = releases.map((r, i) => {
+      const prev = releases[i + 1];
+      const secs = SECTIONS.filter(([k]) => r[k]?.length).map(([k, label]) =>
+        `<div class="sec ${k}"><h3>${label}</h3><ul>${r[k].map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`).join('');
+      const diff = prev ? `<a href="${REPO}/compare/v${esc(prev.version)}...v${esc(r.version)}" target="_blank" rel="noopener">前の版からの差分</a> ・ ` : '';
+      return `<article class="rel${i === 0 ? ' latest' : ''}" id="v${esc(r.version)}">
+        <div class="rel-head"><h2><span class="ver">v${esc(r.version)}</span></h2><time datetime="${esc(r.date)}">${esc(r.date)}</time>${i === 0 ? '<span class="badge">最新</span>' : ''}</div>
+        <p class="rel-title">${esc(r.title)}</p>${secs}
+        <div class="rel-foot">${diff}<a href="${REPO}/releases/tag/v${esc(r.version)}" target="_blank" rel="noopener">GitHub のリリース</a></div>
+      </article>`;
+    }).join('');
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  }).catch(() => {
+    document.getElementById('releases').innerHTML = '<p class="muted">読み込みに失敗しました。</p>';
+  });
+</script>
+</body>
+</html>

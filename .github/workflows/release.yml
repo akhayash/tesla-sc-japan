@@ -1,0 +1,47 @@
+name: Release
+
+# When docs/data/releases.json gains a new version on main, tag the pushed commit
+# and publish a GitHub Release whose notes come from the same file.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/data/releases.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate releases.json and CHANGELOG.md
+        run: python3 tools/release.py check
+
+      - name: Tag and publish the newest version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(python3 tools/release.py latest)"
+          tag="v${version}"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "${tag} already exists; nothing to do"
+            exit 0
+          fi
+          title="$(python3 tools/release.py title "${version}")"
+          python3 tools/release.py notes "${version}" > notes.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898732+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${tag}" "${GITHUB_SHA}" -m "${tag} ${title}"
+          git push origin "${tag}"
+          gh release create "${tag}" --title "${tag} ${title}" --notes-file notes.md --verify-tag --latest

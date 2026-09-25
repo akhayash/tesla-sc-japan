@@ -26,7 +26,7 @@
 </head>
 <body>
 <main>
-  <p class="back"><a href="./">← 地図に戻る</a></p>
+  <p class="back"><a href="./">← 地図に戻る</a> ・ <a href="releases.html">リリースノート</a> <a href="releases.html" data-app-version hidden></a></p>
   <h1>データと算出方法</h1>
   <p class="muted">本サイトは日本のテスラ スーパーチャージャー（SC）とFLASHのNACS対応急速充電器の配置を人口分布と比較するための非公式の可視化です。Tesla, Inc. およびテンフィールズファクトリー株式会社とは関係がありません。</p>
 
@@ -183,5 +183,6 @@
     document.getElementById('fetched-toll').textContent = d.fetched || '-';
   }).catch(() => {});
 </script>
+<script src="version.js?v=20260926-ver"></script>
 </body>
 </html>

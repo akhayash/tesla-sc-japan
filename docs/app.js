@@ -387,7 +387,7 @@
       filter: ['any', ['==', ['get', 'vt_rdctg'], '高速自動車国道等'], ['==', ['get', 'vt_motorway'], 1]],
       layout: { visibility: state.expressway ? 'visible' : 'none', 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': '#0f172a',
+        'line-color': '#006e54',
         'line-opacity': 0.95,
         'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.6, 8, 3, 12, 5],
       },
@@ -415,7 +415,7 @@
           6.5, ['match', ['get', 'code'], 2942, 3, 2],
           10, ['match', ['get', 'code'], 2942, 6, 2941, 4.5, 4],
           12, ['match', ['get', 'code'], 2942, 7, 6]],
-        'circle-color': ['match', ['get', 'code'], 2942, '#059669', 2945, '#0284c7', '#7c3aed'],
+        'circle-color': ['match', ['get', 'code'], 2942, '#334155', 2945, '#0284c7', '#7c3aed'],
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': ['match', ['get', 'code'], 2942, 1.8, 1.2],
       },

@@ -267,7 +267,7 @@ select:focus-visible, button:focus-visible, input:focus-visible, summary:focus-v
   border-radius: 999px;
   vertical-align: 0;
 }
-.transport-road span::before { background: #0f172a; }
+.transport-road span::before { background: #006e54; }
 .transport-facility span::before { background: #7c3aed; }
 .transport-key {
   display: flex;
@@ -312,7 +312,7 @@ select:focus-visible, button:focus-visible, input:focus-visible, summary:focus-v
   vertical-align: -1px;
 }
 .transport-key .ic::before { background: #7c3aed; }
-.transport-key .jct::before { background: #059669; }
+.transport-key .jct::before { background: #334155; }
 .transport-key .smart::before { background: #0284c7; }
 .transport-key .sa::before { background: #f97316; }
 .transport-key .pa::before { background: #eab308; }

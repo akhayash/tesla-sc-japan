@@ -69,7 +69,7 @@ cd pipeline
 | `pipeline/build_mesh.py` | 手法Bの人口平滑化 → `docs/data/mesh.bin`, `mesh_meta.json` |
 | `pipeline/run_all.py` | 上記と TopoJSON 生成（`docs/data/boundaries.topojson`）を一括実行 |
 | `pipeline/update_sc.py` | SCの変化を確認し、変化があれば SC と行政区別集計だけを再生成（自動更新で使用） |
-| `pipeline/build_village.py` | 「もし日本が100人の村だったら」ページ用の数値 → `docs/data/village.json`（データ更新のたびに再生成） |
+| `pipeline/build_village.py` | 「もし日本が100人の村だったら」ページ（絵本＋都道府県地図の2画面。全国版と47都道府県版）用の数値 → `docs/data/village.json`（データ更新のたびに再生成）。県境は `docs/data/pref.topojson`（`run_all.py` で生成） |
 | `pipeline/build_hazard.py` | 各充電拠点の災害想定を判定 → `docs/data/sc_hazard.json`（新規・移動・90日経過の拠点のみ再判定） |
 
 ローカル確認：
@@ -80,6 +80,7 @@ cd docs; python -m http.server 8765
 # 別ターミナルで（Microsoft Edge を使用）
 .\.venv\Scripts\python tools\smoke_test.py http://localhost:8765/ screenshots
 .\.venv\Scripts\python tools\smoke_hazard.py http://localhost:8765/ screenshots
+.\.venv\Scripts\python tools\smoke_village.py http://localhost:8765/ screenshots
 ```
 
 ## 充電器データの自動更新

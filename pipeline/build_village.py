@@ -26,6 +26,7 @@ REGIONS = {
 }
 METROS = ["13", "14", "23", "27"]  # 東京・神奈川・愛知・大阪
 BIG_CITY = 200_000
+PREF_BIG_CITY = 50_000
 BANDS_KM = [10, 30, 50]
 SIGMA_KM = 30.0
 
@@ -41,6 +42,18 @@ def largest_remainder(shares: list[float]) -> list[int]:
     for i in order[: 100 - sum(base)]:
         base[i] += 1
     return base
+
+
+def wquantile(v: np.ndarray, w: np.ndarray, q: float) -> float:
+    o = np.argsort(v)
+    cw = np.cumsum(w[o])
+    return float(v[o][np.searchsorted(cw, q * cw[-1])])
+
+
+def wbox(lon: np.ndarray, lat: np.ndarray, w: np.ndarray) -> list[float]:
+    """Bounding box of where people live (1st–99th weighted percentile), ignoring remote islets."""
+    return [round(wquantile(lon, w, .01), 3), round(wquantile(lat, w, .01), 3),
+            round(wquantile(lon, w, .99), 3), round(wquantile(lat, w, .99), 3)]
 
 
 def smoothed_ratio(mesh, sites, pd30) -> np.ndarray:
@@ -107,6 +120,61 @@ def main() -> None:
     low_cities = [c for c in low_by_city.index if c in city][:3]
 
     name = lambda c: city[c]["name"]  # noqa: E731
+
+    # ---------- prefecture-level figures for the split story page ----------
+    mesh["pref"] = mesh["city"].str.slice(0, 2)
+    mesh["d_o"], mesh["d_a"], mesh["low"] = dist["o"], dist["a"], low
+    lon, lat = mesh["lon"].to_numpy(), mesh["lat"].to_numpy()
+
+    def centroid(mask) -> list[float]:
+        w = pop[mask]
+        return [round(float((lon[mask] * w).sum() / w.sum()), 4), round(float((lat[mask] * w).sum() / w.sum()), 4)]
+
+    city_pts = {}
+    for c in set(isolated) | {c for c, v in city.items() if v["pop"] >= PREF_BIG_CITY and v["o_a_t"] == 0}:
+        m = (mesh["city"] == c).to_numpy()
+        if m.any():
+            city_pts[c] = centroid(m)
+
+    rank_order = sorted(pref, key=lambda c: -pref[c]["o_p_t"])
+    prefs = {}
+    for code, v in pref.items():
+        m = (mesh["pref"] == code).to_numpy()
+        pp = pop[m]
+        d = mesh["d_o"].to_numpy()[m]
+        shares = [pp[((d > lo) | (lo == 0)) & (d <= hi)].sum() / pp.sum() for lo, hi in zip(edges[:-1], edges[1:])]
+        iso = sorted((c for c, cv in city.items() if c[:2] == code and cv["pop"] >= PREF_BIG_CITY and cv["o_a_t"] == 0),
+                     key=lambda c: -city[c]["pop"])
+        low_pref = mesh[m & low].groupby("city")["pop"].sum().sort_values(ascending=False)
+        prefs[code] = {
+            "name": v["name"],
+            "pop": int(v["pop"]),
+            "people_share": round(v["pop"] / total_pop * 100, 1),
+            "charger_share": round(v["o_n_t"] / total_stalls * 100, 1),
+            "sites": int(v["o_n_s"]),
+            "stalls": int(v["o_n_t"]),
+            "planned_sites": int(v["a_n_s"] - v["o_n_s"]),
+            "people_per_stall": int(round(v["pop"] / v["o_n_t"], -3)) if v["o_n_t"] else None,
+            "rank": rank_order.index(code) + 1,
+            "mean_km": round(float((d * pp).sum() / pp.sum()), 1),
+            "bands": largest_remainder(shares),
+            "isolated": [{"name": city[c]["name"], "pop": int(city[c]["pop"]), "pt": city_pts.get(c),
+                          "still": city[c]["a_a_t"] == 0} for c in iso],
+            "low_ratio": per100(pp[mesh["low"].to_numpy()[m]].sum() / pp.sum()),
+            "low_examples": [city[c]["name"] for c in low_pref.index if c in city][:3],
+            "within30_now": per100(pp[d <= 30].sum() / pp.sum()),
+            "within30_all": per100(pp[mesh["d_a"].to_numpy()[m] <= 30].sum() / pp.sum()),
+            "bbox": wbox(lon[m], lat[m], pp),
+        }
+    map_data = {
+        "metros": METROS,
+        "regions": {n: cs for n, cs in REGIONS.items()},
+        "zero": zero_prefs,
+        "near10": {c: p["bands"][0] for c, p in prefs.items()},
+        "low": {c: p["low_ratio"] for c, p in prefs.items()},
+        "per_stall": {c: p["people_per_stall"] for c, p in prefs.items()},
+        "isolated": [{"name": city[c]["name"], "pt": city_pts.get(c), "still": c in still_isolated} for c in isolated],
+    }
     out = {
         "as_of": stats["meta"]["sc_fetched"],
         "sites": stats["meta"]["sites"]["o"],
@@ -123,9 +191,11 @@ def main() -> None:
         "planned": {"within30_now": within30["o"], "within30_all": within30["a"],
                     "planned_sites": int((sets["a"]["group"] == "planned").sum()),
                     "still_isolated": [name(c) for c in still_isolated]},
+        "map": map_data,
+        "prefs": dict(sorted(prefs.items())),
     }
     (OUT / "village.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(json.dumps(out, ensure_ascii=False))
+    print(f"village.json: {len(prefs)} prefectures, national within30 {within30['o']}%")
 
 
 if __name__ == "__main__":

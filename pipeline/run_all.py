@@ -27,6 +27,12 @@ def build_topojson() -> None:
         "-o", str(OUT / "boundaries.topojson"), "format=topojson", "quantization=100000",
     ]
     subprocess.run(cmd, cwd=WORK, check=True, env=os.environ.copy())
+    # Light prefecture outlines for the storybook page (village.html).
+    subprocess.run([
+        npx, "-y", "mapshaper@0.6", "-i", "pref_web.geojson",
+        "-simplify", "12%", "keep-shapes", "-filter-islands", "min-area=2km2",
+        "-o", str(OUT / "pref.topojson"), "format=topojson", "quantization=20000",
+    ], cwd=WORK, check=True, env=os.environ.copy())
 
 
 def main() -> None:

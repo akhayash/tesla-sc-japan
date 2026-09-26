@@ -1,7 +1,5 @@
-// Azure resources for the route/toll relay (api/). Not deployed yet: apply when a subscription is chosen.
-//   az group create -n <rg> -l japaneast
-//   az deployment group create -g <rg> -f infra/main.bicep -p hereApiKey=<from env var>
-//   cd api && func azure functionapp publish <functionAppName>
+// Azure resources for the route/toll relay (api/). Applied by .github/workflows/deploy-api.yml
+// (resource group and IDs come from GitHub repository variables; the HERE key from a secret).
 targetScope = 'resourceGroup'
 
 @description('Region for all resources.')

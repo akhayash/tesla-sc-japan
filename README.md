@@ -63,7 +63,7 @@ IC・施設・充電器・地図上の任意の地点（右クリック／長押
 - HERE の利用規約（日本の結果は24時間を超えて保存しない、1回の結果を複数の利用者に使い回さない、キャッシュは HERE が返すヘッダーの範囲に限る）に従い、**結果はどこにもキャッシュしません**。
 - IC を指定したときは、料金所から一般道側へ少し出た地点を使います（`pipeline/build_ic_gates.py` が OpenStreetMap の料金所と国土地理院の IC を突き合わせて `docs/data/ic_gates.json` を作成）。有料区間を通らない結果になったときは、向きを変えて最大4回まで再計算します。
 - 公式の料金（ドラぷら）との一致は27ペア中19ペアでした（`tools/toll_check.py`）。一致しないのは主に経路の選び方の違い（HEREは所要時間が最短の経路）です。
-- 公開サイトでは無効です（`docs/config.js` の `ROUTE_API` が空）。公開前に、日本の HERE データを他社の地図に重ねて表示してよいかを HERE に確認する必要があります。
+- 公開サイトでは既定で無効です（下記の `?preview=route` を開いたブラウザだけで有効）。一般公開の前に、日本の HERE データを他社の地図に重ねて表示してよいかを HERE に確認する必要があります。
 
 ローカルでの動かし方：
 
@@ -77,7 +77,11 @@ $env:HERE_API_KEY=[Environment]::GetEnvironmentVariable('HERE_API_KEY','User'); 
 cd docs; python -m http.server 8765
 ```
 
-中継のテスト：`cd api; npm test`。Azure へのデプロイは `infra/main.bicep`（Flex Consumption、マネージドIDでストレージに接続）を使います（手順はファイル冒頭のコメント）。
+中継のテスト：`cd api; npm test`。
+
+デプロイ：main への push で `api/`・`infra/` が変わると、GitHub Actions（`.github/workflows/deploy-api.yml`）がテストを通したうえで `infra/main.bicep`（Flex Consumption、マネージドIDでストレージに接続）を適用し、`api/` を配置します。Azure へは OIDC（フェデレーション資格情報付きのユーザー割り当てマネージドID）でサインインし、テナント・サブスクリプション・リソースグループはリポジトリの変数（`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`、`AZURE_RESOURCE_GROUP`）、HERE のキーはシークレット（`HERE_API_KEY`）で管理します。
+
+公開サイトでは既定で無効です。試すときは `https://akhayash.github.io/tesla-sc-japan/?preview=route` を一度開きます（そのブラウザで記憶します。`?preview=off` で解除）。
 
 ## データ再生成
 

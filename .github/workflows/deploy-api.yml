@@ -1,0 +1,81 @@
+name: Deploy route API
+
+# Deploys api/ (HERE route relay) and its Azure resources (infra/main.bicep).
+# Azure IDs are repository variables and the HERE key is a repository secret; nothing is hard-coded:
+#   vars.AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID  (user-assigned identity with a
+#   federated credential for this repo's main branch), vars.AZURE_RESOURCE_GROUP, secrets.HERE_API_KEY
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'infra/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install production dependencies
+        working-directory: api
+        run: npm ci --omit=dev
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy infrastructure
+        id: infra
+        env:
+          HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
+        run: |
+          app=$(az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "route-${{ github.run_number }}" \
+            --template-file infra/main.bicep \
+            --parameters hereApiKey="$HERE_API_KEY" \
+            --query properties.outputs.functionAppName.value -o tsv)
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+      - name: Deploy function code
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.infra.outputs.app }}
+          package: api
+      - name: Smoke test
+        run: |
+          url="https://${{ steps.infra.outputs.app }}.azurewebsites.net/api/route"
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url?o=1,1&d=2,2")
+            [ "$code" = "400" ] && { echo "relay is up (validation returns 400)"; exit 0; }
+            echo "attempt $i: HTTP $code"; sleep 15
+          done
+          exit 1

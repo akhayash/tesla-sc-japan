@@ -31,7 +31,8 @@ export function parseEndpoint(str, label) {
   const g = point(parts[1], label);
   if (Math.abs(a[0] - g[0]) > 0.02 || Math.abs(a[1] - g[1]) > 0.02) throw new BadRequest(`${label}: gate too far`);
   const flip = [Math.round((2 * g[0] - a[0]) * 1e5) / 1e5, Math.round((2 * g[1] - a[1]) * 1e5) / 1e5];
-  return { kind: 'ic', candidates: [a, flip] };
+  const same = flip[0] === a[0] && flip[1] === a[1];
+  return { kind: 'ic', candidates: same ? [a] : [a, flip] };
 }
 
 export function parseVias(list) {

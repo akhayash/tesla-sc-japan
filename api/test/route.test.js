@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { decodeFlexPolyline } from '../src/lib/flexpolyline.js';
 import { attempts, BadRequest, parseDeparture, parseEndpoint, parseRequest, parseVias } from '../src/lib/params.js';
 import { buildHereUrl, simplifyIndices, summarize } from '../src/lib/here.js';
-import { clientIp, IpLimiter, jstDay, MemoryCounter } from '../src/lib/limits.js';
+import { clientIp, IpLimiter, jstDay, MemoryCounter, TableCounter } from '../src/lib/limits.js';
 import { handleRoute } from '../src/lib/handler.js';
 
 test('decodes the reference flexible polyline', () => {
@@ -116,10 +116,27 @@ test('simplifies nearly straight lines but keeps corners', () => {
   assert.deepEqual(simplifyIndices(line), [0, 2, 3]);
 });
 
-test('client IP parsing', () => {
-  assert.equal(clientIp({ 'x-forwarded-for': '1.2.3.4:5678, 10.0.0.1' }), '1.2.3.4');
+test('client IP parsing trusts only the platform-appended entry', () => {
+  assert.equal(clientIp({ 'x-forwarded-for': 'spoofed, 1.2.3.4:5678' }), '1.2.3.4');
   assert.equal(clientIp({ 'x-forwarded-for': '[2001:db8::1]:443' }), '2001:db8::1');
   assert.equal(clientIp({}), 'unknown');
+});
+
+test('IC endpoints whose approach equals the gate have a single candidate', () => {
+  assert.equal(parseEndpoint('35.001,139.001~35.001,139.001', 'o').candidates.length, 1);
+});
+
+test('table counter retries table creation after a failure', async () => {
+  let calls = 0;
+  const client = {
+    createTable: async () => { calls += 1; if (calls === 1) throw Object.assign(new Error('forbidden'), { statusCode: 403 }); },
+    getEntity: async () => { throw Object.assign(new Error('nf'), { statusCode: 404 }); },
+    createEntity: async () => {},
+  };
+  const c = new TableCounter(client);
+  await assert.rejects(c.incrementIfBelow('20260101', 10));
+  assert.equal(await c.incrementIfBelow('20260101', 10), true);
+  assert.equal(calls, 2);
 });
 
 test('per-IP limiter', () => {
@@ -208,6 +225,29 @@ test('handler fails closed when the usage counter is unavailable', async () => {
   const res = await handleRoute(request('o=35,139&d=34.9,137.9'), d);
   assert.equal(res.status, 503);
   assert.equal(d.calls.length, 0);
+});
+
+test('handler keeps a route already found when a retry hits HERE limits', async () => {
+  let n = 0;
+  const noToll = { routes: [{ sections: [{ polyline: 'BFoz5xJ67i1B1B7PzIhaxL7Y', summary: { length: 1000, duration: 60 } }] }] };
+  const d = deps({
+    fetch: async () => {
+      n += 1;
+      return n === 1 ? { ok: true, status: 200, json: async () => noToll } : { ok: false, status: 429, json: async () => ({}) };
+    },
+  });
+  const res = await handleRoute(request('o=35.001,139.001~35.003,139.002&d=34.9,137.9'), d);
+  assert.equal(res.status, 200);
+  assert.equal(res.jsonBody.hasToll, false);
+});
+
+test('per-IP budget counts HERE calls, including IC retries', async () => {
+  const noToll = { routes: [{ sections: [{ polyline: 'BFoz5xJ67i1B1B7PzIhaxL7Y', summary: { length: 1000, duration: 60 } }] }] };
+  const d = deps({ limiter: new IpLimiter({ perMinute: 3 }), fetch: async () => ({ ok: true, status: 200, json: async () => noToll }) });
+  const res = await handleRoute(request('o=35.001,139.001~35.003,139.002&d=34.901,137.901~34.903,137.902'), d);
+  assert.equal(res.status, 200);
+  assert.equal(res.jsonBody.attempts, 3);
+  assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), d)).status, 429);
 });
 
 test('handler maps upstream errors', async () => {

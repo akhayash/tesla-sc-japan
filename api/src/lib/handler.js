@@ -20,13 +20,15 @@ export async function handleRoute(request, deps) {
     if (e instanceof BadRequest) return json(400, { error: 'bad_request', message: e.message });
     throw e;
   }
-  if (!deps.limiter.take(clientIp(request.headers))) {
-    return json(429, { error: 'rate_limited' }, { 'Retry-After': '60' });
-  }
-
+  const ip = clientIp(request.headers);
   let tried = 0;
   let best = null;
   for (const { o, d } of attempts(req)) {
+    // the per-IP budget counts HERE calls, not requests (IC retries cost more)
+    if (!deps.limiter.take(ip)) {
+      if (best) break;
+      return json(429, { error: 'rate_limited' }, { 'Retry-After': '60' });
+    }
     let allowed;
     try {
       allowed = await deps.counter.incrementIfBelow(jstDay(), deps.dailyCap);
@@ -46,9 +48,13 @@ export async function handleRoute(request, deps) {
       res = await deps.fetch(buildHereUrl({ o, d, vias: req.vias, departure: req.departure }, deps.apiKey));
     } catch (e) {
       deps.log?.(`HERE fetch failed: ${e.message}`);
+      if (best) break;
       return json(502, { error: 'upstream' });
     }
-    if (res.status === 429) return json(503, { error: 'upstream_busy' }, { 'Retry-After': '30' });
+    if (res.status === 429) {
+      if (best) break;
+      return json(503, { error: 'upstream_busy' }, { 'Retry-After': '30' });
+    }
     if (!res.ok) {
       deps.log?.(`HERE status ${res.status}`);
       if (best) break;

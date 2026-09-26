@@ -95,7 +95,11 @@
   async function compute(fit = true) {
     if (!S.o || !S.d) return;
     if (km(S.o.ll, S.d.ll) < 0.2) {
+      S.seq++;
+      S.loading = false;
+      resetResult();
       S.error = '出発地と到着地が同じです。';
+      draw();
       renderCard();
       return;
     }
@@ -196,24 +200,26 @@
   function icNameAt(p) {
     return p ? nearestIc(p) : null;
   }
-  async function smartTollMatch(item, exitIc, entryIc) {
+  async function smartTollMatch(item, exitIc, entryIc, stop) {
     if (!exitIc || exitIc !== entryIc) return null;
     const pairs = await loadSmartToll();
     const ic = baseName(exitIc);
     const limit = (pr) => pr.minutes || (pr.kind === 'ev' ? 60 : 120);
-    return pairs.find((pr) => baseName(pr.ic) === ic && km(pr.station_coords, item.ll) <= 2 && S.stop <= limit(pr)) || null;
+    return pairs.find((pr) => baseName(pr.ic) === ic && km(pr.station_coords, item.ll) <= 2 && stop <= limit(pr)) || null;
   }
   async function computeDetour(item) {
     const base = S.result;
     if (!base?.used) return;
     const seq = S.seq;
-    S.detours.set(item.id, { loading: true });
+    const detours = S.detours;
+    const stop = S.stop;
+    detours.set(item.id, { loading: true });
     S.detourSel = item.id;
     renderCard();
     const q = new URLSearchParams({
       o: `${base.used.o[0]},${base.used.o[1]}`,
       d: `${base.used.d[0]},${base.used.d[1]}`,
-      v: `${f5(item.ll[1])},${f5(item.ll[0])},${S.stop}`,
+      v: `${f5(item.ll[1])},${f5(item.ll[0])},${stop}`,
     });
     if (S.t) q.set('t', S.t);
     let entry;
@@ -233,13 +239,14 @@
         dKm: Math.round((body.km - base.km) * 10) / 10,
         dMin: body.min - wait - base.min,
         exitIc, entryIc,
-        smart: await smartTollMatch(item, exitIc, entryIc),
+        smart: await smartTollMatch(item, exitIc, entryIc, stop),
       };
     } catch (e) {
       entry = { error: errorText(e) };
     }
-    if (seq !== S.seq) return;
-    S.detours.set(item.id, entry);
+    // drop results for an older base route or charging duration
+    if (seq !== S.seq || detours !== S.detours || stop !== S.stop) return;
+    detours.set(item.id, entry);
     draw();
     renderCard();
   }

@@ -61,7 +61,9 @@ export class TableCounter {
 
   async init() {
     this.ready ??= this.client.createTable().catch((e) => {
-      if (e.statusCode !== 409) throw e;
+      if (e.statusCode === 409) return;
+      this.ready = null; // retry on the next request (e.g. identity/role not ready at cold start)
+      throw e;
     });
     return this.ready;
   }
@@ -95,10 +97,13 @@ export class TableCounter {
 export function clientIp(headers) {
   const get = (k) => (typeof headers.get === 'function' ? headers.get(k) : headers[k]);
   const xff = get('x-forwarded-for') || '';
-  const first = xff.split(',')[0].trim();
-  if (!first) return 'unknown';
+  // The platform front end appends the real client address to whatever the client sent,
+  // so only the last entry is trustworthy.
+  const parts = xff.split(',').map((s) => s.trim()).filter(Boolean);
+  const last = parts[parts.length - 1];
+  if (!last) return 'unknown';
   // strip :port from IPv4 ("1.2.3.4:5678") and brackets from IPv6 ("[::1]:5678")
-  const v6 = /^\[([^\]]+)\](?::\d+)?$/.exec(first);
+  const v6 = /^\[([^\]]+)\](?::\d+)?$/.exec(last);
   if (v6) return v6[1];
-  return /^\d+\.\d+\.\d+\.\d+:\d+$/.test(first) ? first.split(':')[0] : first;
+  return /^\d+\.\d+\.\d+\.\d+:\d+$/.test(last) ? last.split(':')[0] : last;
 }

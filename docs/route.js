@@ -430,7 +430,7 @@
       <label class="route-time">出発日時 <input type="datetime-local" step="3600" value="${esc(S.t || defaultTime())}" data-route-time></label>
       ${body}
       ${links()}
-      <div class="muted route-note">経路・料金：HERE（所要時間が最短の経路での目安。普通車・ETC。公式の料金と異なる場合があります）</div>`;
+      <div class="muted route-note">経路・料金：© HERE（所要時間が最短の経路での目安。普通車・ETC。公式の料金と異なる場合があります）｜<a href="about.html#route" target="_blank" rel="noopener">詳しく</a></div>`;
   }
 
   function candidates() {

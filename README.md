@@ -56,14 +56,14 @@
 - 災害情報：「[ハザードマップポータルサイト](https://disaportal.gsi.go.jp/)」（国土交通省）を加工して作成（公共データ利用規約 第1.0版）
 - 地図の検索：[国土地理院 住所検索API](https://maps.gsi.go.jp/help/howtouse.html)、[Photon](https://photon.komoot.io/)（© OpenStreetMap contributors）
 
-## 経路・高速料金（開発中・ローカルのみ）
+## 経路・高速料金
 IC・施設・充電器・地図上の任意の地点（右クリック／長押し）を出発地・到着地に指定すると、経路・距離・所要時間・ETC料金を表示します。経路沿いにある「高速道路を降りて使う充電器」について、一時退出して充電した場合の追加料金（直行との差額）も計算でき、「賢い料金」「EV路外充電」の対象なら ETC2.0 で追加料金なしになることも示します。
 
 - 経路と料金は [HERE Routing API v8](https://www.here.com/docs/bundle/routing-api-developer-guide-v8/page/README.html) で計算します。APIキーは静的サイトに置けないため、`api/`（Azure Functions、Node.js）が中継します。中継はキーをサーバー側に持ち、入力の検証、IPごとの回数制限、1日の呼び出し上限（HERE の無料枠を超えないため）を行います。
 - HERE の利用規約（日本の結果は24時間を超えて保存しない、1回の結果を複数の利用者に使い回さない、キャッシュは HERE が返すヘッダーの範囲に限る）に従い、**結果はどこにもキャッシュしません**。
 - IC を指定したときは、料金所から一般道側へ少し出た地点を使います（`pipeline/build_ic_gates.py` が OpenStreetMap の料金所と国土地理院の IC を突き合わせて `docs/data/ic_gates.json` を作成）。有料区間を通らない結果になったときは、向きを変えて最大4回まで再計算します。
 - 公式の料金（ドラぷら）との一致は27ペア中19ペアでした（`tools/toll_check.py`）。一致しないのは主に経路の選び方の違い（HEREは所要時間が最短の経路）です。
-- 公開サイトでは既定で無効です（下記の `?preview=route` を開いたブラウザだけで有効）。一般公開の前に、日本の HERE データを他社の地図に重ねて表示してよいかを HERE に確認する必要があります。
+- HERE Platform Terms 6.4 (a) に従い、HERE の結果は出どころを区別して表示し、「© HERE」と明記しています。
 
 ローカルでの動かし方：
 
@@ -80,8 +80,6 @@ cd docs; python -m http.server 8765
 中継のテスト：`cd api; npm test`。
 
 デプロイ：main への push で `api/`・`infra/` が変わると、GitHub Actions（`.github/workflows/deploy-api.yml`）がテストを通したうえで `infra/main.bicep`（Flex Consumption、マネージドIDでストレージに接続）を適用し、`api/` を配置します。Azure へは OIDC（フェデレーション資格情報付きのユーザー割り当てマネージドID）でサインインし、テナント・サブスクリプション・リソースグループはリポジトリの変数（`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`、`AZURE_RESOURCE_GROUP`）、HERE のキーはシークレット（`HERE_API_KEY`）で管理します。
-
-公開サイトでは既定で無効です。試すときは `https://akhayash.github.io/tesla-sc-japan/?preview=route` を一度開きます（そのブラウザで記憶します。`?preview=off` で解除）。
 
 ## データ再生成
 

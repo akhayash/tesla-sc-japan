@@ -56,6 +56,29 @@
 - 災害情報：「[ハザードマップポータルサイト](https://disaportal.gsi.go.jp/)」（国土交通省）を加工して作成（公共データ利用規約 第1.0版）
 - 地図の検索：[国土地理院 住所検索API](https://maps.gsi.go.jp/help/howtouse.html)、[Photon](https://photon.komoot.io/)（© OpenStreetMap contributors）
 
+## 経路・高速料金（開発中・ローカルのみ）
+IC・施設・充電器・地図上の任意の地点（右クリック／長押し）を出発地・到着地に指定すると、経路・距離・所要時間・ETC料金を表示します。経路沿いにある「高速道路を降りて使う充電器」について、一時退出して充電した場合の追加料金（直行との差額）も計算でき、「賢い料金」「EV路外充電」の対象なら ETC2.0 で追加料金なしになることも示します。
+
+- 経路と料金は [HERE Routing API v8](https://www.here.com/docs/bundle/routing-api-developer-guide-v8/page/README.html) で計算します。APIキーは静的サイトに置けないため、`api/`（Azure Functions、Node.js）が中継します。中継はキーをサーバー側に持ち、入力の検証、IPごとの回数制限、1日の呼び出し上限（HERE の無料枠を超えないため）を行います。
+- HERE の利用規約（日本の結果は24時間を超えて保存しない、1回の結果を複数の利用者に使い回さない、キャッシュは HERE が返すヘッダーの範囲に限る）に従い、**結果はどこにもキャッシュしません**。
+- IC を指定したときは、料金所から一般道側へ少し出た地点を使います（`pipeline/build_ic_gates.py` が OpenStreetMap の料金所と国土地理院の IC を突き合わせて `docs/data/ic_gates.json` を作成）。有料区間を通らない結果になったときは、向きを変えて最大4回まで再計算します。
+- 公式の料金（ドラぷら）との一致は27ペア中19ペアでした（`tools/toll_check.py`）。一致しないのは主に経路の選び方の違い（HEREは所要時間が最短の経路）です。
+- 公開サイトでは無効です（`docs/config.js` の `ROUTE_API` が空）。公開前に、日本の HERE データを他社の地図に重ねて表示してよいかを HERE に確認する必要があります。
+
+ローカルでの動かし方：
+
+```powershell
+# 1) ストレージのエミュレーター（回数制限の日次カウンタ用）
+npx -p azurite azurite --location $env:TEMP\azurite --silent
+# 2) 中継（別ターミナル。キーはユーザー環境変数 HERE_API_KEY から渡す）
+cd api; npm install; Copy-Item local.settings.sample.json local.settings.json
+$env:HERE_API_KEY=[Environment]::GetEnvironmentVariable('HERE_API_KEY','User'); func start
+# 3) サイト（別ターミナル）：localhost で開くと http://localhost:7071/api を使う
+cd docs; python -m http.server 8765
+```
+
+中継のテスト：`cd api; npm test`。Azure へのデプロイは `infra/main.bicep`（Flex Consumption、マネージドIDでストレージに接続）を使います（手順はファイル冒頭のコメント）。
+
 ## データ再生成
 
 ```powershell
@@ -78,6 +101,7 @@ cd pipeline
 | `pipeline/update_sc.py` | SCの変化を確認し、変化があれば SC と行政区別集計だけを再生成（自動更新で使用） |
 | `pipeline/build_village.py` | 「もし日本が100人の村だったら」ページ（絵本＋都道府県地図の2画面。全国版と47都道府県版）用の数値 → `docs/data/village.json`（データ更新のたびに再生成）。県境は `docs/data/pref.topojson`（`run_all.py` で生成） |
 | `pipeline/build_hazard.py` | 各充電拠点の災害想定を判定 → `docs/data/sc_hazard.json`（新規・移動・90日経過の拠点のみ再判定） |
+| `pipeline/build_ic_gates.py` | OpenStreetMap の料金所と国土地理院の IC を突き合わせ、経路計算に使う地点 → `docs/data/ic_gates.json`（手動実行。`--cached` で前回の取得結果を再利用） |
 
 ローカル確認：
 

@@ -167,7 +167,11 @@
       getData: () => ({ sc, roadFacilities: roadFacilityData, stats, unitGeo }),
     });
     render();
-    window.RouteTool?.init({ map, popup, writeHash, getData: () => ({ roadFacilities: roadFacilityData, sc }) });
+    window.RouteTool?.init({
+      map, popup, writeHash,
+      getData: () => ({ roadFacilities: roadFacilityData, sc }),
+      getChargerFilter: () => ({ tesla: state.tesla, flash: state.flash, planned: state.status === 'a' }),
+    });
     $('#loading').hidden = true;
     restoreSelection();
   }).catch((e) => {

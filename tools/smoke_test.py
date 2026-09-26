@@ -36,7 +36,7 @@ CASES = {
 # Synthetic relay responses (the real relay calls HERE; smoke tests never do).
 FAKE_ROUTE = {
     "km": 70.0, "min": 50, "etc": 2010, "cash": None, "hasToll": True,
-    "line": [[137.7877, 34.7479], [137.80, 34.75], [138.0, 34.80], [138.2, 34.88], [138.39, 34.947]],
+    "line": [[137.7877, 34.7479], [137.80, 34.75], [138.0, 34.80], [138.30, 34.878], [138.39, 34.947]],
     "tollSpans": [[1, 4]],
     "tolls": [{"section": 0, "system": "NEXCO", "etc": 2010, "cash": None,
                "entry": {"name": "x", "lng": 137.789, "lat": 34.745}, "exit": {"name": "y", "lng": 138.3915, "lat": 34.9475}}],
@@ -53,6 +53,14 @@ def fake_relay(route):
     if route_status["code"] != 200:
         route.fulfill(status=route_status["code"], content_type="application/json", body=_json.dumps({"error": "rate_limited"}),
                       headers={"Access-Control-Allow-Origin": "*"})
+        return
+    if "v=" in route.request.url:
+        detour = dict(FAKE_ROUTE, etc=2170, km=73.1, min=96,
+                      line=FAKE_ROUTE["line"][:3] + [[138.3025, 34.8800]] + FAKE_ROUTE["line"][3:],
+                      sections=[{"km": 40.0, "min": 30, "etc": 1000, "wait": 30}, {"km": 33.1, "min": 36, "etc": 1170, "wait": 0}],
+                      tolls=[{"section": 0, "system": "NEXCO", "etc": 1000, "cash": None, "entry": {"name": "x", "lng": 137.789, "lat": 34.745}, "exit": None},
+                             {"section": 1, "system": "NEXCO", "etc": 1170, "cash": None, "entry": None, "exit": {"name": "y", "lng": 138.3915, "lat": 34.9475}}])
+        route.fulfill(status=200, content_type="application/json", body=_json.dumps(detour), headers={"Access-Control-Allow-Origin": "*"})
         return
     route.fulfill(status=200, content_type="application/json", body=_json.dumps(FAKE_ROUTE), headers={"Access-Control-Allow-Origin": "*"})
 
@@ -184,6 +192,17 @@ with sync_playwright() as p:
                 errors.append(f"IC route request did not use toll-gate points and departure time: {route_requests[-1:]}")
             if "ro=" not in page.url or "rd=" not in page.url:
                 errors.append("route endpoints were not kept in the URL")
+            names = page.locator(".route-cand .name").all_inner_texts()
+            if "Yaizu, Japan" not in names:
+                errors.append(f"off-expressway charger candidates were not listed: {names}")
+            else:
+                i = names.index("Yaizu, Japan")
+                page.locator(".route-cands li").nth(i).locator("[data-route-detour]").click()
+                page.wait_for_selector(".route-det-result", timeout=10000)
+                res = page.inner_text(".route-cands li:nth-child(%d)" % (i + 1))
+                if "+160円" not in res or "+16分" not in res or "v=" not in route_requests[-1]:
+                    errors.append(f"temporary-exit fare difference was wrong: {res!r}")
+                page.screenshot(path=str(OUT / "route_detour.png"))
             page.click("[data-route-close]")
             if page.is_visible(".route-card") or "ro=" in page.url:
                 errors.append("closing the route card did not clear the route")

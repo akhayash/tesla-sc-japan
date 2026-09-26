@@ -995,5 +995,29 @@ body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
 .route-note { font-size: 10px; line-height: 1.5; }
 .route-card .muted { color: var(--muted); }
 @media (max-width: 760px) {
-  .route-card { width: calc(100vw - 20px); min-width: 0; max-height: 45vh; }
+  .route-card { width: calc(100vw - 110px); min-width: 0; max-height: 32vh; }
 }
+.route-detour { margin: 2px 0 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+.route-detour summary { font-weight: 700; cursor: pointer; margin-bottom: 4px; }
+.route-stop { display: flex; align-items: center; gap: 6px; margin: 4px 0 6px; color: var(--muted); }
+.route-stop { white-space: nowrap; }
+.route-stop select { width: auto; flex: none; padding: 2px 4px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.route-cands { margin: 0 0 6px; padding: 0; list-style: none; }
+.route-cands li { padding: 5px 0; border-top: 1px dashed var(--border); }
+.route-cand { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.route-cand .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.route-net { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.route-net.flash { background: var(--flash); }
+.route-calc, .route-det-result {
+  width: 100%; padding: 4px 8px; background: var(--surface-subtle); border: 1px solid var(--border);
+  border-radius: 6px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.route-det-result { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; text-align: left; }
+.route-det-result.active { background: #fff7ed; border-color: #fdba74; }
+.route-det-result b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.route-det-result b.up { color: #c2410c; }
+.route-exit { margin-top: 3px; font-size: 11px; }
+.route-smart { margin-top: 3px; padding: 3px 6px; color: #166534; background: #dcfce7; border-radius: 5px; font-size: 11px; }
+.route-onhw { margin: 2px 0 6px; font-size: 11px; line-height: 1.5; }
+
+.route-mini { font-weight: 700; font-variant-numeric: tabular-nums; }

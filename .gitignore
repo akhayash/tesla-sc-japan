@@ -3,3 +3,6 @@ __pycache__/
 /data/
 /screenshots/
 *.pyc
+node_modules/
+api/local.settings.json
+.playwright-mcp/

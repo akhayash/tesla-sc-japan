@@ -1,0 +1,21 @@
+{
+  "name": "tesla-sc-japan-route-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Relay for HERE Routing (route + expressway tolls) used by the tesla-sc-japan map. Keeps the API key server-side.",
+  "type": "module",
+  "main": "src/functions/*.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "func start",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.0",
+    "@azure/functions": "^4.7.0",
+    "@azure/identity": "^4.10.0"
+  }
+}
+

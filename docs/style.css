@@ -938,3 +938,62 @@ body.panel-collapsed .map-search { width: min(360px, calc(100vw - 130px)); }
   color: #57606a; background: #eef1f4; border: 1px solid #dde2e8; border-radius: 99px; text-decoration: none;
 }
 .app-version:hover { color: var(--accent); border-color: #f3b1bb; background: var(--accent-soft); }
+
+/* ---------- route & fare ---------- */
+.route-set { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0 0 6px; }
+.route-set button {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 6px; color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 7px;
+  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.route-set button:hover { background: #dbeafe; }
+.route-set button b, .route-pin-mini {
+  display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
+  color: #fff; background: #1d4ed8; font-size: 10px; font-weight: 800; line-height: 1;
+}
+.route-set button[data-route-set="d"] b, .route-pin-mini.d { background: #b91c1c; }
+.route-pin {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); color: #fff; background: #1d4ed8; border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35); font-size: 12px; font-weight: 800;
+}
+.route-pin.d { background: #b91c1c; }
+.route-pin span { transform: rotate(45deg); }
+.route-card {
+  width: min(340px, calc(100vw - var(--panel-width) - 130px)); min-width: 260px;
+  max-height: calc(100vh - 140px); overflow: auto; padding: 10px 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(16, 24, 40, .14); font-size: 12px; pointer-events: auto;
+}
+body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
+.route-card[hidden] { display: none; }
+.route-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.route-head h3 { flex: 1; margin: 0; font-size: 13px; }
+.route-x, .route-swap {
+  width: 24px; height: 24px; padding: 0; color: var(--muted); background: transparent;
+  border: 1px solid transparent; border-radius: 6px; font-size: 15px; line-height: 1; cursor: pointer;
+}
+.route-x:hover, .route-swap:hover { color: var(--text); background: var(--surface-subtle); border-color: var(--border); }
+.route-ep { display: flex; align-items: center; gap: 6px; min-height: 26px; }
+.route-ep .name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.route-ep.empty { color: var(--muted); }
+.route-warn { padding: 1px 5px; color: #92400e; background: #fef3c7; border-radius: 4px; font-size: 10px; }
+.route-time { display: flex; align-items: center; gap: 6px; margin: 6px 0 8px; color: var(--muted); }
+.route-time input { flex: 1; min-width: 0; padding: 3px 5px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.route-summary { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.route-summary div { display: flex; flex-direction: column; padding: 6px 8px; background: var(--surface-subtle); border-radius: 8px; }
+.route-summary b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.route-summary div:first-child b { color: #1d4ed8; font-size: 17px; }
+.route-cash { margin: -2px 0 6px; }
+.route-tolls { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+.route-tolls td { padding: 4px 2px; border-top: 1px solid var(--border); vertical-align: top; }
+.route-tolls td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.route-hint { margin: 4px 0 8px; color: var(--muted); line-height: 1.5; }
+.route-error { margin: 4px 0 6px; color: #b91c1c; }
+.route-retry { margin-bottom: 8px; padding: 4px 10px; background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 6px; font: inherit; cursor: pointer; }
+.route-links { margin: 4px 0 6px; }
+.route-note { font-size: 10px; line-height: 1.5; }
+.route-card .muted { color: var(--muted); }
+@media (max-width: 760px) {
+  .route-card { width: calc(100vw - 20px); min-width: 0; max-height: 45vh; }
+}

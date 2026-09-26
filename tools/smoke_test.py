@@ -29,14 +29,40 @@ CASES = {
     "b_ratio_bw3": "#mode=B&layer=ratio&bw=3&at=139.7,35.68,10",
     "b_sc_bw20": "#mode=B&layer=sc&bw=20",
     "b_near": "#mode=B&layer=near&tesla=1&flash=1&at=139.7,35.68,10",
+    "route_ic": "#mode=B&layer=none&ro=ic~137.78770,34.74793~浜松ＩＣ&rd=ic~138.39152,34.94767~静岡ＩＣ&rt=2026-09-29T10:00",
+    "route_point": "#mode=B&layer=none&at=137.9,34.85,10",
 }
+
+# Synthetic relay responses (the real relay calls HERE; smoke tests never do).
+FAKE_ROUTE = {
+    "km": 70.0, "min": 50, "etc": 2010, "cash": None, "hasToll": True,
+    "line": [[137.7877, 34.7479], [137.80, 34.75], [138.0, 34.80], [138.2, 34.88], [138.39, 34.947]],
+    "tollSpans": [[1, 4]],
+    "tolls": [{"section": 0, "system": "NEXCO", "etc": 2010, "cash": None,
+               "entry": {"name": "x", "lng": 137.789, "lat": 34.745}, "exit": {"name": "y", "lng": 138.3915, "lat": 34.9475}}],
+    "sections": [{"km": 70.0, "min": 50, "etc": 2010, "wait": 0}],
+    "used": {"o": [34.74, 137.78], "d": [34.95, 138.39]}, "departure": "2026-09-29T10:00:00+09:00", "attempts": 1, "attribution": "HERE",
+}
+route_requests: list[str] = []
+route_status = {"code": 200}
+
+
+def fake_relay(route):
+    import json as _json
+    route_requests.append(route.request.url)
+    if route_status["code"] != 200:
+        route.fulfill(status=route_status["code"], content_type="application/json", body=_json.dumps({"error": "rate_limited"}),
+                      headers={"Access-Control-Allow-Origin": "*"})
+        return
+    route.fulfill(status=200, content_type="application/json", body=_json.dumps(FAKE_ROUTE), headers={"Access-Control-Allow-Origin": "*"})
 
 errors: list[str] = []
 with sync_playwright() as p:
     browser = p.chromium.launch(channel="msedge", headless=True, args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
     page = browser.new_page(viewport={"width": 1400, "height": 900})
-    page.on("console", lambda m: m.type == "error" and errors.append(m.text))
+    page.on("console", lambda m: m.type == "error" and "status of 429" not in m.text and errors.append(m.text))
     page.on("pageerror", lambda e: errors.append(str(e)))
+    page.route("**/api/route?*", fake_relay)
     for name, h in CASES.items():
         page.goto("about:blank")
         page.goto(BASE + h)
@@ -149,6 +175,40 @@ with sync_playwright() as p:
             page.wait_for_timeout(500)
             if "最寄り" not in page.inner_text("#tooltip"):
                 errors.append("nearest-charger tooltip did not appear")
+        if name == "route_ic":
+            card = page.inner_text(".route-card") if page.locator(".route-card").count() else ""
+            if "2,010円" not in card or "浜松IC" not in card or "静岡IC" not in card or "ドラぷら" not in card:
+                errors.append("IC-to-IC route card did not render the fare")
+            last = route_requests[-1].replace("%7E", "~") if route_requests else ""
+            if "~" not in last or "t=2026-09-29T10%3A00" not in last:
+                errors.append(f"IC route request did not use toll-gate points and departure time: {route_requests[-1:]}")
+            if "ro=" not in page.url or "rd=" not in page.url:
+                errors.append("route endpoints were not kept in the URL")
+            page.click("[data-route-close]")
+            if page.is_visible(".route-card") or "ro=" in page.url:
+                errors.append("closing the route card did not clear the route")
+        if name == "route_point":
+            n0 = len(route_requests)
+            page.mouse.click(700, 450, button="right")
+            page.wait_for_timeout(400)
+            page.click('.maplibregl-popup-content [data-route-set="o"]')
+            page.mouse.click(1100, 350, button="right")
+            page.wait_for_timeout(400)
+            page.click('.maplibregl-popup-content [data-route-set="d"]')
+            page.wait_for_selector(".route-summary", timeout=10000)
+            if len(route_requests) != n0 + 1 or "~" in route_requests[-1].replace("%7E", "~"):
+                errors.append("map-point route did not send a single plain-point request")
+            if "place~" not in page.url.replace("%7E", "~"):
+                errors.append("map-point endpoints were not kept in the URL")
+            route_status["code"] = 429
+            page.click("[data-route-swap]")
+            page.wait_for_selector(".route-error", timeout=10000)
+            if "1分" not in page.inner_text(".route-error"):
+                errors.append("rate-limit error message was not shown")
+            route_status["code"] = 200
+            page.click("[data-route-retry]")
+            page.wait_for_selector(".route-summary", timeout=10000)
+            page.screenshot(path=str(OUT / "route_point_done.png"))
         if name == "b_none":
             if page.locator('[data-key="layer"] button.active').count():
                 errors.append("no-mesh state was not restored from URL")

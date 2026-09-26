@@ -167,6 +167,7 @@
       getData: () => ({ sc, roadFacilities: roadFacilityData, stats, unitGeo }),
     });
     render();
+    window.RouteTool?.init({ map, popup, writeHash, getData: () => ({ roadFacilities: roadFacilityData, sc }) });
     $('#loading').hidden = true;
     restoreSelection();
   }).catch((e) => {
@@ -214,6 +215,7 @@
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries(state)) p.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : v);
     window.HazardOverlay?.writeHash(p);
+    window.RouteTool?.writeHash(p);
     if (map) {
       const c = map.getCenter();
       p.set('at', `${c.lng.toFixed(4)},${c.lat.toFixed(4)},${map.getZoom().toFixed(2)}`);
@@ -604,8 +606,9 @@
         $('#tooltip').hidden = true;
       });
       map.on('click', id, (e) => {
-        const p = e.features[0].properties;
-        popup.setLngLat(e.lngLat).setHTML(`<h3>${esc(p.name || p.type)}</h3><div>${esc(p.type)}</div>`).addTo(map);
+        const f = e.features[0];
+        const p = f.properties;
+        popup.setLngLat(e.lngLat).setHTML(`<div class="charger-popup"><h3>${esc(p.name || p.type)}</h3><div class="muted">${esc(p.type)}</div>${window.RouteTool?.facilityButtonsHtml(p, f.geometry.coordinates) || ''}</div>`).addTo(map);
       });
     }
   }
@@ -1487,6 +1490,7 @@
       </table>
       ${aerialHtml(`toll:${i}`, p.station_coords, { color: k.color })}
       ${linksHtml(placeLinks(p.station_coords))}
+      ${window.RouteTool?.buttonsHtml({ name: `道の駅 ${p.station}`, ll: p.station_coords }) || ''}
       ${shareButtonHtml()}
       <div class="muted poi-source">出典：<a href="${esc(p.source)}" target="_blank" rel="noopener">${p.kind === 'ev' ? 'NEXCO中日本' : 'ETC総合情報ポータル'}</a>（社会実験のため変更・終了の可能性あり）</div>
     </div>`;
@@ -1511,6 +1515,7 @@
       <div class="muted">${type.label}</div>
       ${aerialHtml(`poi:${index}`, item.coords, { color: style?.color || type.color })}
       ${linksHtml(placeLinks(item.coords))}
+      ${window.RouteTool?.buttonsHtml({ name: item.n, ll: item.coords }) || ''}
       ${shareButtonHtml()}
       <div class="muted poi-source">施設情報：${OSM_ATTR}</div>
     </div>`;
@@ -1671,6 +1676,7 @@
       <div class="muted">${sub}</div>
       ${aerialHtml(p.id, coords, { note: flash ? '位置は住所から推定' : '', color: NETWORK_COLOR[flash ? 'flash' : 'tesla'] })}
       ${linksHtml(chargerLinks(p, coords))}
+      ${window.RouteTool?.buttonsHtml({ name: p.name, ll: coords }) || ''}
       ${shareButtonHtml()}
       <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
       <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>

@@ -4,6 +4,16 @@
 サイト上の表示：[リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)。バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 充電器データの週次自動更新はバージョンに含めません。
 
+## [1.6.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.5.0...v1.6.0) - 2026-09-27
+
+**賢い料金で寄れる充電器を経路から提案**
+
+### 追加
+- 経路上に「賢い料金」の対象ICがあると、その道の駅から15km以内の充電器を「賢い料金で寄れる充電器」として表示。「寄り道を計算」で、ICで降りて道の駅に寄ってから充電し同じICに戻る経路を計算し、2時間以内ならETC2.0で直行と同じ料金（±0円）と表示
+
+### 変更
+- 賢い料金の経路は「道の駅に寄ってから充電」の順にし、出口と入口を対象ICに固定して計算
+
 ## [1.5.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.4.0...v1.5.0) - 2026-09-27
 
 **賢い料金は道の駅への立ち寄りを含めて判定**

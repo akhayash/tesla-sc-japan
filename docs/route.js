@@ -10,7 +10,7 @@
   const isIc = (code, name) => IC_CODES.has(Number(code)) || (Number(code) === 2942 && /IC/.test(String(name || '').normalize('NFKC')));
   const MAX_NAME = 40;
 
-  const S = { o: null, d: null, t: '', result: null, loading: false, error: '', seq: 0, stop: 30, detours: new Map(), detourSel: null, q: { o: '', d: '' } };
+  const S = { o: null, d: null, t: '', result: null, loading: false, error: '', seq: 0, stop: 30, detours: new Map(), smartVisits: new Map(), smartPairs: null, detourSel: null, q: { o: '', d: '' } };
   // read before app.js rewrites the hash on the first map move
   const initialHash = new URLSearchParams(location.hash.slice(1));
   let map = null, popup = null, ctx = null, card = null;
@@ -35,10 +35,10 @@
   }
   function gateFor(name, ll) {
     let best = null, bestD = Infinity;
-    const key = String(name).normalize('NFKC');
+    const key = baseName(name);
     for (const g of gates || []) {
       const d = km([g[1], g[2]], ll);
-      if (g[0].normalize('NFKC') === key && d < 3 && d < bestD) { best = g; bestD = d; }
+      if (baseName(g[0]) === key && d < 3 && d < bestD) { best = g; bestD = d; }
     }
     return best ? { approach: [best[5], best[6]], gate: [best[3], best[4]] } : null;
   }
@@ -131,6 +131,7 @@
   function resetResult() {
     S.result = null;
     S.detours = new Map();
+    S.smartVisits = new Map();
     S.detourSel = null;
   }
 
@@ -265,6 +266,127 @@
     if (!res.ok) throw Object.assign(new Error(body.error || String(res.status)), { status: res.status, code: body.error });
     return body;
   }
+  const waitOf = (b) => b.sections.reduce((a, s) => a + (s.wait || 0), 0);
+  function baseQuery(base) {
+    const q = new URLSearchParams({ o: `${base.used.o[0]},${base.used.o[1]}`, d: `${base.used.d[0]},${base.used.d[1]}` });
+    if (S.t) q.set('t', S.t);
+    return q;
+  }
+  /**
+   * Route that leaves at the 賢い料金 IC, passes the 道の駅 antenna first, charges, and returns to the
+   * same IC. Eligible (ETC2.0: same fare as not leaving) when both gates are that IC and the time
+   * off the expressway fits the limit.
+   */
+  async function evalSmartVisit(base, q0, pair, charger, stop) {
+    const st = pair.station_coords;
+    const q = new URLSearchParams(q0);
+    const core = [`${f5(st[1])},${f5(st[0])},${STATION_STOP_MIN}`, `${f5(charger.ll[1])},${f5(charger.ll[0])},${stop}`];
+    // pin the exit and the re-entry to the designated IC via its local-road approach point
+    // (the mirrored point is tried when the derived approach turns out to be on the mainline side)
+    await loadGates();
+    const g = gateFor(pair.ic, pair.ic_coords);
+    const pins = g ? [g.approach, [2 * g.gate[0] - g.approach[0], 2 * g.gate[1] - g.approach[1]]] : [null];
+    let res = null;
+    for (const pin of pins) {
+      const ap = pin && `${f5(pin[1])},${f5(pin[0])},0`;
+      q.set('v', (ap ? [ap, ...core, ap] : core).join('|'));
+      const b = await fetchRoute(q);
+      const last = b.sections.length - 1;
+      const exitIc = icNameAt(b.tolls.filter((t) => t.section === 0).at(-1)?.exit);
+      const entryIc = icNameAt(b.tolls.filter((t) => t.section === last)[0]?.entry);
+      const sameIc = !!exitIc && exitIc === entryIc && baseName(exitIc) === baseName(pair.ic);
+      res = { b, exitIc, entryIc, sameIc };
+      if (sameIc) break;
+    }
+    const { b, exitIc, entryIc, sameIc } = res;
+    const wait = waitOf(b);
+    const dMin = b.min - wait - base.min;
+    const offMin = Math.max(0, dMin) + wait;
+    return {
+      pair,
+      result: b,
+      stops: [st, charger.ll],
+      dEtc: b.etc - base.etc,
+      dKm: Math.round((b.km - base.km) * 10) / 10,
+      dMin,
+      offMin,
+      exitIc, entryIc,
+      ok: sameIc && offMin <= smartLimit(pair),
+      reason: !sameIc ? 'ic' : offMin > smartLimit(pair) ? 'time' : '',
+    };
+  }
+
+  // 賢い料金 ICs on the route and chargers reachable from their 道の駅 (proactive suggestions)
+  const SMART_IC_KM = 1.5;
+  const SMART_CHARGER_KM = 15;
+  const SMART_PER_PAIR = 3;
+  function tollGeometry(r) {
+    const line = r.line;
+    const cum = [0];
+    for (let i = 1; i < line.length; i++) cum.push(cum[i - 1] + km(line[i - 1], line[i]));
+    const segs = [];
+    for (const [a, b] of r.tollSpans || []) for (let i = a; i < b; i++) segs.push(i);
+    const nearest = (p) => {
+      let best = Infinity, at = 0;
+      for (const i of segs) {
+        const d = segDistKm(p, line[i], line[i + 1]);
+        if (d < best) { best = d; at = i; }
+      }
+      return { d: best, along: cum[at] };
+    };
+    return { nearest };
+  }
+  function smartCandidates() {
+    const r = S.result;
+    if (!r?.hasToll || !S.smartPairs) return [];
+    const { nearest } = tollGeometry(r);
+    const filter = ctx.getChargerFilter?.() || { tesla: true, flash: true, planned: false };
+    const chargers = (ctx.getData().sc?.features || []).filter((f) => {
+      const p = f.properties, net = p.network || 'tesla';
+      return (net === 'tesla' ? filter.tesla : filter.flash) && (p.group === 'open' || filter.planned);
+    });
+    const out = [];
+    for (const pair of S.smartPairs) {
+      if (pair.kind === 'ev' || !pair.ic_coords) continue;
+      const onRoute = nearest(pair.ic_coords);
+      if (onRoute.d > SMART_IC_KM) continue;
+      if (km(pair.ic_coords, S.o.ll) < 1 || km(pair.ic_coords, S.d.ll) < 1) continue;
+      const near = chargers
+        .map((f) => ({ f, d: km(f.geometry.coordinates, pair.station_coords) }))
+        .filter((x) => x.d <= SMART_CHARGER_KM)
+        .sort((a, b) => a.d - b.d)
+        .slice(0, SMART_PER_PAIR);
+      for (const { f, d } of near) {
+        const p = f.properties;
+        out.push({
+          key: `${pair.station}|${p.id}`,
+          pair,
+          dStation: d,
+          along: onRoute.along,
+          charger: { id: String(p.id), name: p.name, network: p.network || 'tesla', ll: f.geometry.coordinates },
+        });
+      }
+    }
+    return out.sort((a, b) => a.along - b.along || a.dStation - b.dStation);
+  }
+  async function computeSmart(item) {
+    const base = S.result;
+    if (!base?.used) return;
+    const seq = S.seq, visits = S.smartVisits, stop = S.stop;
+    visits.set(item.key, { loading: true });
+    S.detourSel = `sv:${item.key}`;
+    renderCard();
+    let entry;
+    try {
+      entry = await evalSmartVisit(base, baseQuery(base), item.pair, item.charger, stop);
+    } catch (e) {
+      entry = { error: errorText(e) };
+    }
+    if (seq !== S.seq || visits !== S.smartVisits || stop !== S.stop) return;
+    visits.set(item.key, entry);
+    draw();
+    renderCard();
+  }
   async function computeDetour(item) {
     const base = S.result;
     if (!base?.used) return;
@@ -274,13 +396,8 @@
     detours.set(item.id, { loading: true });
     S.detourSel = item.id;
     renderCard();
-    const q = new URLSearchParams({
-      o: `${base.used.o[0]},${base.used.o[1]}`,
-      d: `${base.used.d[0]},${base.used.d[1]}`,
-      v: `${f5(item.ll[1])},${f5(item.ll[0])},${stop}`,
-    });
-    if (S.t) q.set('t', S.t);
-    const waitOf = (b) => b.sections.reduce((a, s) => a + (s.wait || 0), 0);
+    const q = baseQuery(base);
+    q.set('v', `${f5(item.ll[1])},${f5(item.ll[0])},${stop}`);
     let entry;
     try {
       const body = await fetchRoute(q);
@@ -300,25 +417,7 @@
         smart: match?.atStation && entryIc === exitIc && stop + Math.max(0, dMin) <= smartLimit(match.pair) ? match.pair : null,
       };
       if (match && !match.atStation) {
-        // charge, then pass the 道の駅 antenna on the way back to the same IC
-        const st = match.pair.station_coords;
-        const q2 = new URLSearchParams(q);
-        q2.set('v', `${q.get('v')}|${f5(st[1])},${f5(st[0])},${STATION_STOP_MIN}`);
-        const b2 = await fetchRoute(q2);
-        const exit2 = icNameAt(b2.tolls.filter((t) => t.section === 0).at(-1)?.exit);
-        const entry2 = icNameAt(b2.tolls.filter((t) => t.section === 2)[0]?.entry);
-        const wait2 = waitOf(b2);
-        const dMin2 = b2.min - wait2 - base.min;
-        const offMin = Math.max(0, dMin2) + wait2;
-        entry.visit = {
-          pair: match.pair,
-          result: b2,
-          stops: [item.ll, st],
-          dKm: Math.round((b2.km - base.km) * 10) / 10,
-          dMin: dMin2,
-          offMin,
-          ok: !!exit2 && exit2 === entry2 && baseName(exit2) === baseName(match.pair.ic) && offMin <= smartLimit(match.pair),
-        };
+        entry.visit = await evalSmartVisit(base, q, match.pair, item, stop);
       }
     } catch (e) {
       if (entry) entry.visitError = errorText(e);
@@ -381,8 +480,8 @@
         for (const p of [t.entry, t.exit]) if (p) features.push({ type: 'Feature', properties: { role: 'gate' }, geometry: { type: 'Point', coordinates: [p.lng, p.lat] } });
       }
       const selId = String(S.detourSel || '');
-      const det = selId && S.detours.get(selId.replace(/:visit$/, ''));
-      const shown = selId.endsWith(':visit') ? det?.visit : det;
+      const det = selId && !selId.startsWith('sv:') && S.detours.get(selId.replace(/:visit$/, ''));
+      const shown = selId.startsWith('sv:') ? S.smartVisits.get(selId.slice(3)) : selId.endsWith(':visit') ? det?.visit : det;
       if (shown?.result?.line?.length) {
         features.push({ type: 'Feature', properties: { role: 'detour' }, geometry: { type: 'LineString', coordinates: shown.result.line } });
         for (const stop of shown.stops || []) features.push({ type: 'Feature', properties: { role: 'stop' }, geometry: { type: 'Point', coordinates: stop } });
@@ -561,7 +660,7 @@
       const visit = v
         ? v.ok
           ? `<button type="button" class="route-smart route-visit${S.detourSel === `${item.id}:visit` ? ' active' : ''}" data-route-show="${esc(item.id)}:visit">
-              <span>道の駅「${esc(v.pair.station)}」にも寄れば、ETC2.0で追加料金なし（賢い料金）</span>
+              <span>先に道の駅「${esc(v.pair.station)}」に寄ってから充電すれば、ETC2.0で追加料金なし（賢い料金）</span>
               <small>±0円 · ${v.dKm >= 0 ? '+' : '−'}${Math.abs(v.dKm)}km · ${v.dMin >= 0 ? '+' : '−'}${Math.abs(v.dMin)}分（停車時間を除く）· 充電と道の駅${STATION_STOP_MIN}分を含め、降りてから約${Math.round(v.offMin)}分で戻る</small>
             </button>`
           : `<div class="muted route-exit">道の駅「${esc(v.pair.station)}」に寄っても、賢い料金の条件（${esc(String(v.pair.ic).normalize('NFKC'))}で降りて同じICから${smartLimit(v.pair) / 60}時間以内に戻る）を満たさない見込みです</div>`
@@ -573,6 +672,39 @@
     }
     return `<li><div class="route-cand">${dot}<span class="name" title="${esc(item.name)}">${esc(item.name)}</span><span class="muted">${item.d.toFixed(1)}km</span></div>${res}</li>`;
   }
+  function smartRow(item) {
+    const v = S.smartVisits.get(item.key);
+    const c = item.charger;
+    const dot = `<i class="route-net ${c.network === 'flash' ? 'flash' : 'tesla'}"></i>`;
+    const where = item.dStation <= AT_STATION_KM ? '道の駅内' : `道の駅から${item.dStation.toFixed(1)}km`;
+    let res = `<button type="button" class="route-calc" data-route-smart="${esc(item.key)}">寄り道を計算</button>`;
+    if (v?.loading) res = '<span class="muted">計算中…</span>';
+    else if (v?.error) res = `<span class="route-error">${esc(v.error)}</span>`;
+    else if (v?.result) {
+      const sel = S.detourSel === `sv:${item.key}` ? ' active' : '';
+      const detail = `${v.dKm >= 0 ? '+' : '−'}${Math.abs(v.dKm)}km · ${v.dMin >= 0 ? '+' : '−'}${Math.abs(v.dMin)}分（停車時間を除く）· 降りてから約${Math.round(v.offMin)}分で戻る`;
+      res = v.ok
+        ? `<button type="button" class="route-smart route-visit${sel}" data-route-show="sv:${esc(item.key)}"><span>ETC2.0なら直行と同じ料金（±0円）</span><small>${detail}</small></button>`
+        : `<button type="button" class="route-det-result${sel}" data-route-show="sv:${esc(item.key)}"><b class="${v.dEtc > 0 ? 'up' : ''}">${signedYen(v.dEtc)}</b><span>${v.dKm >= 0 ? '+' : '−'}${Math.abs(v.dKm)}km · ${v.dMin >= 0 ? '+' : '−'}${Math.abs(v.dMin)}分</span></button>
+           <div class="muted route-exit">${v.reason === 'time' ? `戻るまで約${Math.round(v.offMin)}分で、${smartLimit(item.pair) / 60}時間を超えるため対象外の見込み（充電時間を短くすると対象になる場合があります）` : `同じIC（${esc(String(item.pair.ic).normalize('NFKC'))}）から戻る経路にならないため対象外の見込み`}</div>`;
+    }
+    return `<li><div class="route-cand">${dot}<span class="name" title="${esc(c.name)}">${esc(c.name)}</span><span class="muted">${where}</span></div>${res}</li>`;
+  }
+  function smartHtml() {
+    const list = smartCandidates();
+    if (!list.length) return '';
+    const groups = [];
+    for (const it of list) {
+      const g = groups.at(-1);
+      if (g && g.pair === it.pair) g.items.push(it);
+      else groups.push({ pair: it.pair, items: [it] });
+    }
+    return `<div class="route-smart-list">
+      <div class="route-smart-head">賢い料金で寄れる充電器<small>ETC2.0車：${groups.length === 1 ? '' : '各'}ICで降りて、先に道の駅に寄ってから充電し、2時間以内に同じICから同じ方向へ戻れば直行と同じ料金</small></div>
+      ${groups.map((g) => `<div class="route-smart-pair">${esc(String(g.pair.ic).normalize('NFKC'))} ⇄ 道の駅「${esc(g.pair.station)}」</div>
+        <ul class="route-cands">${g.items.map(smartRow).join('')}</ul>`).join('')}
+    </div>`;
+  }
   function detourHtml() {
     const { off, on } = candidates();
     const stopOpts = [15, 20, 30, 45, 60, 90].map((m) => `<option value="${m}"${m === S.stop ? ' selected' : ''}>${m}分</option>`).join('');
@@ -582,6 +714,7 @@
     return `<details class="route-detour" open>
       <summary>充電で一時退出したときの料金</summary>
       <label class="route-stop">充電時間 <select data-route-stop>${stopOpts}</select></label>
+      ${smartHtml()}
       ${off.length ? `<ul class="route-cands">${off.map(detourRow).join('')}</ul>` : '<p class="route-hint">経路の有料区間から5km以内に、高速道路を降りて使う充電器はありません。</p>'}
       ${onTxt}
       <div class="muted route-note">一度降りると料金が2回分に分かれ、ターミナルチャージや長距離逓減の分だけ高くなることがあります。直行した場合との差額です（距離・時間は充電時間を除く）。「賢い料金」はETC2.0車で、対象の道の駅の出入口にあるアンテナの通過が条件です。</div>
@@ -720,6 +853,10 @@
       const id = e.target.closest('[data-route-detour]').dataset.routeDetour;
       const item = S.result && candidates().off.find((c) => c.id === id);
       if (item) computeDetour(item);
+    } else if (e.target.closest('[data-route-smart]')) {
+      const key = e.target.closest('[data-route-smart]').dataset.routeSmart;
+      const item = S.result && smartCandidates().find((c) => c.key === key);
+      if (item) computeSmart(item);
     } else if (e.target.closest('[data-route-show]')) {
       const id = e.target.closest('[data-route-show]').dataset.routeShow;
       S.detourSel = S.detourSel === id ? null : id;
@@ -731,6 +868,7 @@
     if (e.target.matches('[data-route-stop]')) {
       S.stop = Number(e.target.value) || 30;
       S.detours = new Map();
+      S.smartVisits = new Map();
       S.detourSel = null;
       draw();
       renderCard();
@@ -820,6 +958,7 @@
     // compact by default on small screens so the map stays usable
     S.collapsed = window.matchMedia('(max-width: 760px)').matches;
     bindPointPicking();
+    loadSmartToll().then((pairs) => { S.smartPairs = pairs; if (S.result) renderCard(); });
     renderCard();
     restore();
   }

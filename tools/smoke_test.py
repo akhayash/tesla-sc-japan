@@ -218,14 +218,14 @@ with sync_playwright() as p:
                 errors.append(f"IC route request did not use toll-gate points and departure time: {route_requests[-1:]}")
             if "ro=" not in page.url or "rd=" not in page.url:
                 errors.append("route endpoints were not kept in the URL")
-            names = page.locator(".route-cand .name").all_inner_texts()
+            names = page.locator(".route-detour > .route-cands .route-cand .name").all_inner_texts()
             if "Yaizu, Japan" not in names:
                 errors.append(f"off-expressway charger candidates were not listed: {names}")
             else:
                 i = names.index("Yaizu, Japan")
-                page.locator(".route-cands li").nth(i).locator("[data-route-detour]").click()
+                page.locator(".route-detour > .route-cands > li").nth(i).locator("[data-route-detour]").click()
                 page.wait_for_selector(".route-det-result", timeout=10000)
-                res = page.inner_text(".route-cands li:nth-child(%d)" % (i + 1))
+                res = page.locator(".route-detour > .route-cands > li").nth(i).inner_text()
                 if "+160円" not in res or "+16分" not in res or "v=" not in route_requests[-1]:
                     errors.append(f"temporary-exit fare difference was wrong: {res!r}")
                 page.screenshot(path=str(OUT / "route_detour.png"))
@@ -294,12 +294,14 @@ with sync_playwright() as p:
                     errors.append(f"searched ICs were not sent as toll-gate endpoints: {last}")
             page.screenshot(path=str(OUT / "route_search.png"))
         if name == "route_visit":
-            names = page.locator(".route-cand .name").all_inner_texts()
+            if "丹波おばあちゃんの里" not in (page.inner_text(".route-smart-list") if page.locator(".route-smart-list").count() else ""):
+                errors.append("賢い料金 suggestions were not listed for a route through 春日IC")
+            names = page.locator(".route-detour > .route-cands .route-cand .name").all_inner_texts()
             if "丹波市役所春日庁舎" not in names:
                 errors.append(f"visit scenario candidate missing: {names}")
             else:
                 i = names.index("丹波市役所春日庁舎")
-                page.locator(".route-cands li").nth(i).locator("[data-route-detour]").click()
+                page.locator(".route-detour > .route-cands > li").nth(i).locator("[data-route-detour]").click()
                 page.wait_for_selector(".route-visit", timeout=10000)
                 txt = page.inner_text(".route-visit")
                 if "丹波おばあちゃんの里" not in txt or "±0円" not in txt or "|" not in route_requests[-1].replace("%7C", "|"):

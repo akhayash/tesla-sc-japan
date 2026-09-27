@@ -3,7 +3,7 @@
 export class BadRequest extends Error {}
 
 const JP = { latMin: 20, latMax: 46, lngMin: 122, lngMax: 154 };
-const MAX_VIAS = 3;
+const MAX_VIAS = 5;
 const MAX_STOP_MIN = 240;
 
 function point(str, label) {

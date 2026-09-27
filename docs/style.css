@@ -1081,3 +1081,37 @@ body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
 }
 .route-num.smart { background: #16a34a; }
 .route-card .share-link { margin-top: 2px; }
+/* waypoints */
+.route-set { grid-template-columns: 1fr auto 1fr; }
+.route-set [data-route-set="v"] { padding: 6px 8px; color: #9a3412; background: #fff7ed; border-color: #fed7aa; }
+.route-set [data-route-set="v"]:hover { background: #ffedd5; }
+.route-set button b.v, .route-pin-mini.v { background: #ea580c; }
+.route-pin-mini.v.smart { background: #16a34a; }
+.route-ep.via { gap: 5px; }
+.route-stop-sel { flex: none; padding: 1px 2px; border: 1px solid var(--border); border-radius: 5px; font: inherit; font-size: 11px; }
+.route-add-via {
+  display: block; margin: 2px 0 2px 22px; padding: 2px 6px; color: #9a3412; background: none;
+  border: 1px dashed #fdba74; border-radius: 6px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.route-add-via:hover { background: #fff7ed; }
+.route-tag { display: inline-block; flex: none; margin-top: 3px; padding: 1px 6px; border-radius: 4px; font-size: 10px; }
+.route-tag.split { color: #9a3412; background: #ffedd5; }
+.route-tag.smart { color: #166534; background: #dcfce7; }
+.route-compare { display: grid; gap: 2px; margin: 0 0 6px; padding: 6px 8px; background: var(--surface-subtle); border-radius: 8px; }
+.route-compare div { display: flex; align-items: baseline; gap: 6px; }
+.route-compare span { flex: 1; color: var(--muted); }
+.route-compare b { font-variant-numeric: tabular-nums; }
+.route-compare em { min-width: 64px; text-align: right; font-style: normal; font-variant-numeric: tabular-nums; color: var(--muted); }
+.route-compare em.up { color: #c2410c; }
+.route-compare .smart span, .route-compare .smart b, .route-compare .smart em { color: #166534; }
+.route-groups { margin: 0 0 6px; padding: 0; list-style: none; }
+.route-groups li { padding: 5px 0; border-top: 1px dashed var(--border); font-size: 11px; }
+.route-exit-where { font-weight: 600; }
+.route-hint-smart { margin-top: 4px; padding: 5px 7px; color: #14532d; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; line-height: 1.5; }
+.route-hint-smart button { display: block; margin-top: 4px; padding: 3px 8px; color: #fff; background: #16a34a; border: 0; border-radius: 5px; font: inherit; font-size: 11px; cursor: pointer; }
+.route-toll-detail summary { cursor: pointer; color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+.route-pin-mini { flex: none; }
+.route-ep.via .name { flex: 1; min-width: 0; }
+.route-ep.via .route-stop-sel { width: auto; min-width: 0; flex: none; }
+.route-ep.via .route-tag { margin-top: 0; }
+.route-ep.via .route-stop-sel { height: 22px; padding: 0 2px; line-height: 1; appearance: auto; background: #fff; }

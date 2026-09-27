@@ -1,6 +1,7 @@
 """Headless smoke test: load the map in each mode and save screenshots."""
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -33,7 +34,8 @@ CASES = {
     "route_point": "#mode=B&layer=none&at=137.9,34.85,10",
     "route_here": "#mode=B&layer=none&at=138.2,34.9,10",
     "route_search": "#mode=B&layer=none",
-    "route_visit": "#mode=B&layer=none&tesla=1&flash=1&ro=place~135.17947,35.06208~A&rd=place~135.17439,35.28213~B",
+    "route_via": "#mode=B&layer=none&ro=ic~137.78770,34.74793~浜松ＩＣ&rd=ic~138.39152,34.94767~静岡ＩＣ&rv=place~138.30248,34.88001~Yaizu~30&rt=2026-09-29T10:00",
+    "route_visit": "#mode=B&layer=none&tesla=1&flash=1&ro=place~135.17947,35.06208~A&rd=place~135.17439,35.28213~B&rv=place~135.10114,35.16890~丹波市役所春日庁舎~30",
 }
 
 # Synthetic relay responses (the real relay calls HERE; smoke tests never do).
@@ -66,16 +68,14 @@ def fake_relay(route):
         return
     url = route.request.url.replace("%2C", ",").replace("%7C", "|")
     if "o=35.06" in url:
-        if "|" in url:
-            body = dict(TAMBA_BASE, km=37.8, min=26 + 11 + 35, etc=820,
-                        sections=[{"km": 12, "min": 10, "etc": 380, "wait": 30}, {"km": 2, "min": 3, "etc": 0, "wait": 5}, {"km": 23.8, "min": 24, "etc": 440, "wait": 0}],
+        m = re.search(r"[?&]v=([^&]*)", url)
+        if m:
+            stops = m.group(1).split("|")
+            n = len(stops) + 1
+            sections = [{"km": 5, "min": 5, "etc": 0, "wait": int(x.split(",")[2])} for x in stops] + [{"km": 20, "min": 20, "etc": 0, "wait": 0}]
+            body = dict(TAMBA_BASE, km=37.8, min=26 + 20 + sum(int(x.split(",")[2]) for x in stops), etc=820, sections=sections,
                         tolls=[{"section": 0, "system": "NEXCO", "etc": 380, "cash": None, "entry": None, "exit": KASUGA},
-                               {"section": 2, "system": "NEXCO", "etc": 440, "cash": None, "entry": KASUGA, "exit": None}])
-        elif "v=" in url:
-            body = dict(TAMBA_BASE, km=37.2, min=26 + 9 + 30, etc=820,
-                        sections=[{"km": 12, "min": 10, "etc": 380, "wait": 30}, {"km": 25.2, "min": 25, "etc": 440, "wait": 0}],
-                        tolls=[{"section": 0, "system": "NEXCO", "etc": 380, "cash": None, "entry": None, "exit": KASUGA},
-                               {"section": 1, "system": "NEXCO", "etc": 440, "cash": None, "entry": KASUGA, "exit": None}])
+                               {"section": n - 1, "system": "NEXCO", "etc": 440, "cash": None, "entry": KASUGA, "exit": None}])
         else:
             body = TAMBA_BASE
         route.fulfill(status=200, content_type="application/json", body=_json.dumps(body), headers={"Access-Control-Allow-Origin": "*"})
@@ -84,8 +84,8 @@ def fake_relay(route):
         detour = dict(FAKE_ROUTE, etc=2170, km=73.1, min=96,
                       line=FAKE_ROUTE["line"][:3] + [[138.3025, 34.8800]] + FAKE_ROUTE["line"][3:],
                       sections=[{"km": 40.0, "min": 30, "etc": 1000, "wait": 30}, {"km": 33.1, "min": 36, "etc": 1170, "wait": 0}],
-                      tolls=[{"section": 0, "system": "NEXCO", "etc": 1000, "cash": None, "entry": {"name": "x", "lng": 137.789, "lat": 34.745}, "exit": None},
-                             {"section": 1, "system": "NEXCO", "etc": 1170, "cash": None, "entry": None, "exit": {"name": "y", "lng": 138.3915, "lat": 34.9475}}])
+                      tolls=[{"section": 0, "system": "NEXCO", "etc": 1000, "cash": None, "entry": {"name": "x", "lng": 137.789, "lat": 34.745}, "exit": {"name": "yz", "lng": 138.2735, "lat": 34.8743}},
+                             {"section": 1, "system": "NEXCO", "etc": 1170, "cash": None, "entry": {"name": "yz", "lng": 138.2735, "lat": 34.8743}, "exit": {"name": "y", "lng": 138.3915, "lat": 34.9475}}])
         route.fulfill(status=200, content_type="application/json", body=_json.dumps(detour), headers={"Access-Control-Allow-Origin": "*"})
         return
     main = dict(FAKE_ROUTE)
@@ -230,23 +230,12 @@ with sync_playwright() as p:
                     errors.append("switching to the alternative route did not update the card")
                 page.click('[data-route-alt="0"]')
                 page.wait_for_timeout(300)
-            if not page.locator(".route-detour > .route-cands .route-num").count():
-                errors.append("temporary-exit candidates were not numbered to match the map markers")
             page.click("[data-route-share]")
             page.wait_for_timeout(300)
             if "コピーしました" not in page.inner_text("[data-route-share]"):
                 errors.append("route share button did not copy the link")
-            names = page.locator(".route-detour > .route-cands .route-cand .name").all_inner_texts()
-            if "Yaizu, Japan" not in names:
-                errors.append(f"off-expressway charger candidates were not listed: {names}")
-            else:
-                i = names.index("Yaizu, Japan")
-                page.locator(".route-detour > .route-cands > li").nth(i).locator("[data-route-detour]").click()
-                page.wait_for_selector(".route-det-result", timeout=10000)
-                res = page.locator(".route-detour > .route-cands > li").nth(i).inner_text()
-                if "+160円" not in res or "+16分" not in res or "v=" not in route_requests[-1]:
-                    errors.append(f"temporary-exit fare difference was wrong: {res!r}")
-                page.screenshot(path=str(OUT / "route_detour.png"))
+            if not page.locator("[data-route-add-via]").count():
+                errors.append("add-waypoint button missing")
             page.click("[data-route-close]")
             if not page.is_visible(".route-card.idle") or "ro=" in page.url:
                 errors.append("clearing the route did not return the card to its compact search state")
@@ -286,8 +275,8 @@ with sync_playwright() as p:
             page.click('[data-route-clear="o"]')
             page.click('[data-route-here="o"]')
             page.wait_for_selector(".route-summary", timeout=10000)
-            if len(route_requests) != n0 + 2:
-                errors.append("card 'current location' button did not recompute the route")
+            if "現在地" not in page.inner_text(".route-card") or len(route_requests) > n0 + 2:
+                errors.append("card 'current location' button did not restore the route")
             page.screenshot(path=str(OUT / "route_here.png"))
         if name == "default" and not page.is_visible('.route-card.idle [data-route-q="o"]'):
             errors.append("route search panel should be shown from the start")
@@ -311,20 +300,40 @@ with sync_playwright() as p:
                 if last.count("~") != 2:
                     errors.append(f"searched ICs were not sent as toll-gate endpoints: {last}")
             page.screenshot(path=str(OUT / "route_search.png"))
+        if name == "route_via":
+            card = page.inner_text(".route-card")
+            if "Yaizu" not in card or "+160円" not in card or "料金が2回に分かれます" not in card:
+                errors.append(f"waypoint fare split was not shown: {card[:300]!r}")
+            if not any("v=" in u and "Yaizu" not in u for u in route_requests[-2:]):
+                errors.append("waypoint request was not sent")
+            if "rv=" not in page.url:
+                errors.append("waypoints were not kept in the URL")
+            page.select_option('[data-route-stop="0"]', "15")
+            page.wait_for_timeout(800)
+            if ",15" not in route_requests[-1].replace("%2C", ","):
+                errors.append("changing the stop time did not recompute")
+            page.click('[data-route-remove="0"]')
+            page.wait_for_selector(".route-summary", timeout=10000)
+            if "rv=" in page.url or page.locator(".route-compare").count():
+                errors.append("removing the waypoint did not return to the direct route")
+            page.click(".route-add-via")
+            page.fill('[data-route-q="v0"]', "Yaizu")
+            page.wait_for_selector('[data-route-sug="v0"] li[data-i]', timeout=5000)
+            page.locator('[data-route-sug="v0"] li[data-i]').first.click()
+            page.wait_for_selector(".route-compare", timeout=10000)
+            page.screenshot(path=str(OUT / "route_via.png"))
         if name == "route_visit":
-            if "丹波おばあちゃんの里" not in (page.inner_text(".route-smart-list") if page.locator(".route-smart-list").count() else ""):
-                errors.append("賢い料金 suggestions were not listed for a route through 春日IC")
-            names = page.locator(".route-detour > .route-cands .route-cand .name").all_inner_texts()
-            if "丹波市役所春日庁舎" not in names:
-                errors.append(f"visit scenario candidate missing: {names}")
+            if not page.locator("[data-route-add-station]").count() or "丹波おばあちゃんの里" not in page.inner_text(".route-hint-smart"):
+                errors.append("賢い料金 道の駅 hint was not offered for a charger near 春日IC")
             else:
-                i = names.index("丹波市役所春日庁舎")
-                page.locator(".route-detour > .route-cands > li").nth(i).locator("[data-route-detour]").click()
-                page.wait_for_selector(".route-visit", timeout=10000)
-                txt = page.inner_text(".route-visit")
-                if "丹波おばあちゃんの里" not in txt or "±0円" not in txt or "|" not in route_requests[-1].replace("%7C", "|"):
-                    errors.append(f"道の駅 visit (賢い料金) was not evaluated: {txt!r}")
-                page.click(".route-visit")
+                page.click("[data-route-add-station]")
+                page.wait_for_selector(".route-compare .smart", timeout=10000)
+                txt = page.inner_text(".route-card")
+                last = route_requests[-1].replace("%7C", "|").replace("%2C", ",")
+                if "±0円" not in txt or "降りなかった扱い" not in txt:
+                    errors.append(f"賢い料金 was not applied after adding the 道の駅: {txt[:400]!r}")
+                if not any(u.replace("%7C", "|").count("|") >= 3 for u in route_requests[-3:]):
+                    errors.append("IC pins were not added around the 道の駅 stretch")
                 page.screenshot(path=str(OUT / "route_visit.png"))
         if name == "b_none":
             if page.locator('[data-key="layer"] button.active').count():

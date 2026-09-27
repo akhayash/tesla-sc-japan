@@ -39,7 +39,8 @@ test('parses charging stops', () => {
   assert.throws(() => parseVias(['34.85,137.95']), BadRequest);
   assert.throws(() => parseVias(['34.85,137.95,999']), BadRequest);
   assert.equal(parseVias(['35,139,1', '35,139,1', '35,139,1', '35,139,0']).length, 4);
-  assert.throws(() => parseVias(['35,139,1|35,139,1|35,139,1|35,139,1|35,139,1|35,139,1']), BadRequest);
+  assert.equal(parseVias([Array(9).fill('35,139,1').join('|')]).length, 9);
+  assert.throws(() => parseVias([Array(10).fill('35,139,1').join('|')]), BadRequest);
   assert.deepEqual(parseVias(['34.85,137.95,30|34.9,138,5']).map((v) => v.minutes), [30, 5]);
 });
 

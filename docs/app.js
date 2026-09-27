@@ -1494,7 +1494,7 @@
       </table>
       ${aerialHtml(`toll:${i}`, p.station_coords, { color: k.color })}
       ${linksHtml(placeLinks(p.station_coords))}
-      ${window.RouteTool?.buttonsHtml({ name: `道の駅 ${p.station}`, ll: p.station_coords }) || ''}
+      ${window.RouteTool?.buttonsHtml({ name: `道の駅 ${p.station}`, ll: p.station_coords, stop: 5 }) || ''}
       ${shareButtonHtml()}
       <div class="muted poi-source">出典：<a href="${esc(p.source)}" target="_blank" rel="noopener">${p.kind === 'ev' ? 'NEXCO中日本' : 'ETC総合情報ポータル'}</a>（社会実験のため変更・終了の可能性あり）</div>
     </div>`;
@@ -1519,7 +1519,7 @@
       <div class="muted">${type.label}</div>
       ${aerialHtml(`poi:${index}`, item.coords, { color: style?.color || type.color })}
       ${linksHtml(placeLinks(item.coords))}
-      ${window.RouteTool?.buttonsHtml({ name: item.n, ll: item.coords }) || ''}
+      ${window.RouteTool?.buttonsHtml({ name: item.n, ll: item.coords, stop: item.t === 'michinoeki' ? 5 : 0 }) || ''}
       ${shareButtonHtml()}
       <div class="muted poi-source">施設情報：${OSM_ATTR}</div>
     </div>`;
@@ -1680,7 +1680,7 @@
       <div class="muted">${sub}</div>
       ${aerialHtml(p.id, coords, { note: flash ? '位置は住所から推定' : '', color: NETWORK_COLOR[flash ? 'flash' : 'tesla'] })}
       ${linksHtml(chargerLinks(p, coords))}
-      ${window.RouteTool?.buttonsHtml({ name: p.name, ll: coords }) || ''}
+      ${window.RouteTool?.buttonsHtml({ name: p.name, ll: coords, stop: 30 }) || ''}
       ${shareButtonHtml()}
       <div class="spec-badges">${bolts(tier)}<span class="kw">${kw ? `最大 ${kw} kW` : '出力不明'}</span></div>
       <table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>

@@ -32,6 +32,7 @@ CASES = {
     "route_ic": "#mode=B&layer=none&ro=ic~137.78770,34.74793~浜松ＩＣ&rd=ic~138.39152,34.94767~静岡ＩＣ&rt=2026-09-29T10:00",
     "route_point": "#mode=B&layer=none&at=137.9,34.85,10",
     "route_here": "#mode=B&layer=none&at=138.2,34.9,10",
+    "route_search": "#mode=B&layer=none",
 }
 
 # Synthetic relay responses (the real relay calls HERE; smoke tests never do).
@@ -205,8 +206,8 @@ with sync_playwright() as p:
                     errors.append(f"temporary-exit fare difference was wrong: {res!r}")
                 page.screenshot(path=str(OUT / "route_detour.png"))
             page.click("[data-route-close]")
-            if page.is_visible(".route-card") or "ro=" in page.url:
-                errors.append("closing the route card did not clear the route")
+            if not page.is_visible(".route-card.idle") or "ro=" in page.url:
+                errors.append("clearing the route did not return the card to its compact search state")
         if name == "route_point":
             n0 = len(route_requests)
             page.mouse.click(700, 450, button="right")
@@ -246,6 +247,28 @@ with sync_playwright() as p:
             if len(route_requests) != n0 + 2:
                 errors.append("card 'current location' button did not recompute the route")
             page.screenshot(path=str(OUT / "route_here.png"))
+        if name == "default" and not page.is_visible('.route-card.idle [data-route-q="o"]'):
+            errors.append("route search panel should be shown from the start")
+        if name == "route_search":
+            n0 = len(route_requests)
+            page.fill('[data-route-q="o"]', "浜松IC")
+            page.press('[data-route-q="o"]', "Enter")
+            page.wait_for_timeout(600)
+            if "浜松IC" not in page.inner_text(".route-card"):
+                errors.append("exact search match did not set the origin")
+            page.fill('[data-route-q="d"]', "静岡")
+            page.wait_for_selector('[data-route-sug="d"] li[data-i]', timeout=5000)
+            labels = page.locator('[data-route-sug="d"] li[data-i] b').all_inner_texts()
+            target = next((i for i, l in enumerate(labels) if l == "静岡IC"), None)
+            if target is None:
+                errors.append(f"destination suggestions missing 静岡IC: {labels}")
+            else:
+                page.locator('[data-route-sug="d"] li[data-i]').nth(target).click()
+                page.wait_for_selector(".route-summary", timeout=10000)
+                last = route_requests[-1].replace("%7E", "~") if len(route_requests) > n0 else ""
+                if last.count("~") != 2:
+                    errors.append(f"searched ICs were not sent as toll-gate endpoints: {last}")
+            page.screenshot(path=str(OUT / "route_search.png"))
         if name == "b_none":
             if page.locator('[data-key="layer"] button.active').count():
                 errors.append("no-mesh state was not restored from URL")

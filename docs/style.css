@@ -1031,3 +1031,28 @@ body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
 }
 .route-here:hover { background: #d1fae5; }
 .route-locating { flex: none; font-size: 11px; }
+.route-card.idle { padding: 8px 10px; }
+.route-card.idle .route-head { margin-bottom: 4px; }
+.route-search { position: relative; flex: 1; min-width: 0; }
+.route-q {
+  width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface-subtle); font: inherit; font-size: 12px;
+}
+.route-q:focus { outline: none; border-color: #93c5fd; background: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, .15); }
+.route-ep.empty + .route-ep.empty { margin-top: 4px; }
+.route-sug {
+  position: static; max-height: 240px; overflow: auto; margin-top: 3px !important;
+  margin: 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 6px 20px rgba(16, 24, 40, .16);
+}
+.route-sug li { display: flex; align-items: center; gap: 6px; padding: 5px 8px; cursor: pointer; }
+.route-sug li.on, .route-sug li[data-i]:hover { background: #eff6ff; }
+.route-sug .k { flex: none; width: 18px; text-align: center; }
+.route-sug .t { display: flex; flex-direction: column; min-width: 0; }
+.route-sug .t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.route-sug .t small { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.route-sug li.st { color: var(--muted); font-size: 11px; cursor: default; }
+.route-sug li.more { cursor: pointer; color: #1d4ed8; }
+.route-ep.empty { align-items: flex-start; }
+.route-ep.empty > .route-pin-mini { margin-top: 5px; }
+.route-ep.empty > .route-here, .route-ep.empty > .route-locating { margin-top: 2px; }

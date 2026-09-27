@@ -8,7 +8,7 @@
   const IC_CODES = new Set([2941, 2945]);
   const MAX_NAME = 40;
 
-  const S = { o: null, d: null, t: '', result: null, loading: false, error: '', seq: 0, stop: 30, detours: new Map(), detourSel: null };
+  const S = { o: null, d: null, t: '', result: null, loading: false, error: '', seq: 0, stop: 30, detours: new Map(), detourSel: null, q: { o: '', d: '' } };
   // read before app.js rewrites the hash on the first map move
   const initialHash = new URLSearchParams(location.hash.slice(1));
   let map = null, popup = null, ctx = null, card = null;
@@ -33,9 +33,10 @@
   }
   function gateFor(name, ll) {
     let best = null, bestD = Infinity;
+    const key = String(name).normalize('NFKC');
     for (const g of gates || []) {
       const d = km([g[1], g[2]], ll);
-      if (g[0] === name && d < 3 && d < bestD) { best = g; bestD = d; }
+      if (g[0].normalize('NFKC') === key && d < 3 && d < bestD) { best = g; bestD = d; }
     }
     return best ? { approach: [best[5], best[6]], gate: [best[3], best[4]] } : null;
   }
@@ -430,22 +431,27 @@
     const label = role === 'o' ? '出発' : '到着';
     if (!ep) {
       const here = S.locating === role
-        ? '<span class="muted route-locating">現在地を取得中…</span>'
-        : navigator.geolocation ? `<button type="button" class="route-here" data-route-here="${role}">${LOCATE_ICON}現在地</button>` : '';
-      return `<div class="route-ep empty"><span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span><span class="name">${label}地を選んでください</span>${here}</div>`;
+        ? '<span class="muted route-locating">取得中…</span>'
+        : navigator.geolocation ? `<button type="button" class="route-here" data-route-here="${role}" title="現在地を${label}地にする">${LOCATE_ICON}現在地</button>` : '';
+      return `<div class="route-ep empty"><span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span>
+        <div class="route-search"><input type="search" class="route-q" data-route-q="${role}" value="${esc(S.q[role])}" placeholder="${label}地を検索、または地図で選択" autocomplete="off" spellcheck="false" aria-label="${label}地を検索" aria-autocomplete="list" aria-controls="route-sug-${role}">
+        <ul class="route-sug" id="route-sug-${role}" data-route-sug="${role}" role="listbox" hidden></ul></div>${here}</div>`;
     }
     const warn = ep.kind === 'ic' && !ep.gate ? '<span class="route-warn" title="料金所の位置が見つからないため、IC付近の地点から計算します">位置は概略</span>' : '';
     return `<div class="route-ep"><span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span><span class="name">${esc(ep.name.normalize('NFKC'))}</span>${warn}<button type="button" class="route-x" data-route-clear="${role}" aria-label="${label}地を解除">×</button></div>`;
   }
   function renderCard() {
     if (!card) return;
-    const active = !!(S.o || S.d);
-    card.hidden = !active;
-    if (!active) return;
+    const focused = document.activeElement?.dataset?.routeQ;
+    const idle = !S.o && !S.d;
+    card.hidden = false;
+    card.classList.toggle('idle', idle);
     const r = S.result;
     let body = '';
-    if (!S.o || !S.d) {
-      body = '<p class="route-hint">IC・施設・充電器のポップアップ、または地図の右クリック／長押しで地点を指定できます。</p>';
+    if (idle) {
+      body = S.error ? `<p class="route-error">${esc(S.error)}</p>` : '';
+    } else if (!S.o || !S.d) {
+      body = S.error ? `<p class="route-error">${esc(S.error)}</p>` : '<p class="route-hint">検索のほか、IC・施設・充電器のポップアップや地図の右クリック／長押しでも指定できます。</p>';
     } else if (S.loading) {
       body = '<p class="route-hint">計算中…</p>';
     } else if (S.error) {
@@ -463,19 +469,31 @@
     }
     const head = `
       <div class="route-head"><h3>経路・料金</h3>
-        <button type="button" class="route-swap" data-route-swap aria-label="出発と到着を入れ替え" title="入れ替え">⇅</button>
-        <button type="button" class="route-x" data-route-collapse aria-expanded="${!S.collapsed}" aria-label="${S.collapsed ? '詳細を開く' : '折りたたむ'}">${S.collapsed ? '▸' : '▾'}</button>
-        <button type="button" class="route-x" data-route-close aria-label="経路を閉じる">×</button></div>`;
+        ${idle ? '' : '<button type="button" class="route-swap" data-route-swap aria-label="出発と到着を入れ替え" title="入れ替え">⇅</button>'}
+        <button type="button" class="route-x" data-route-collapse aria-expanded="${!S.collapsed}" aria-label="${S.collapsed ? '開く' : '折りたたむ'}">${S.collapsed ? '▸' : '▾'}</button>
+        ${idle ? '' : '<button type="button" class="route-x" data-route-close aria-label="経路をクリア" title="クリア">×</button>'}</div>`;
     if (S.collapsed) {
-      card.innerHTML = head + (r && !S.loading && !S.error ? `<div class="route-mini">${yen(r.etc)} · ${r.km} km · ${fmtMin(r.min)}</div>` : '');
+      const epName = (ep) => (ep ? esc(ep.name.normalize('NFKC')) : '未選択');
+      const mini = r && !S.loading && !S.error
+        ? `${yen(r.etc)} · ${r.km} km · ${fmtMin(r.min)}`
+        : !idle ? `${epName(S.o)} → ${epName(S.d)}` : '';
+      card.innerHTML = head + (mini ? `<div class="route-mini">${mini}</div>` : '');
       return;
     }
-    card.innerHTML = `${head}
+    if (idle) {
+      card.innerHTML = `${head}${epRow('o')}${epRow('d')}${body}`;
+    } else {
+      card.innerHTML = `${head}
       ${epRow('o')}${epRow('d')}
       <label class="route-time">出発日時 <input type="datetime-local" step="3600" value="${esc(S.t || defaultTime())}" data-route-time></label>
       ${body}
       ${links()}
       <div class="muted route-note">経路・料金：© HERE（所要時間が最短の経路での目安。普通車・ETC。公式の料金と異なる場合があります）｜<a href="about.html#route" target="_blank" rel="noopener">詳しく</a></div>`;
+    }
+    if (focused) {
+      const el = card.querySelector(`[data-route-q="${focused}"]`);
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
   }
 
   function candidates() {
@@ -521,6 +539,86 @@
     </details>`;
   }
 
+  // ---------- search (same index and sources as the map search) ----------
+  const sugState = { o: { rows: [], active: -1, seq: 0 }, d: { rows: [], active: -1, seq: 0 } };
+  let sugTimer = null;
+  const sugEl = (role) => card?.querySelector(`[data-route-sug="${role}"]`);
+  function renderSug(role, rows, { loading = false, empty = false } = {}) {
+    const st = sugState[role];
+    st.rows = rows;
+    if (st.active >= rows.length) st.active = -1;
+    const el = sugEl(role);
+    if (!el) return;
+    const info = (k) => window.MapSearch?.kindInfo?.(k) || { icon: '📍', label: '' };
+    let html = rows.map((r, i) => `<li role="option" data-i="${i}" class="${i === st.active ? 'on' : ''}"><span class="k" aria-hidden="true">${info(r.kind).icon}</span><span class="t"><b>${esc(r.label)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span></li>`).join('');
+    if (loading) html += '<li class="st">住所・地名・施設を検索中…</li>';
+    else if (empty) html += '<li class="st">見つかりませんでした</li>';
+    else if (!rows.some((r) => r.kind === 'gsi' || r.kind === 'osm')) html += '<li class="st more" data-more>↵ 住所・地名・施設（駅など）をさらに検索</li>';
+    el.innerHTML = html;
+    el.hidden = false;
+  }
+  function closeSug(role) {
+    const el = sugEl(role);
+    if (el) el.hidden = true;
+    sugState[role].seq++;
+    sugState[role].active = -1;
+  }
+  function suggestLocal(role) {
+    const q = S.q[role].trim();
+    if (!q || !window.MapSearch?.local) { closeSug(role); return; }
+    sugState[role].seq++;
+    renderSug(role, window.MapSearch.local(q));
+  }
+  async function searchRemote(role) {
+    const q = S.q[role].trim();
+    if (!q || !window.MapSearch?.remote) return;
+    const st = sugState[role];
+    const my = ++st.seq;
+    const local = window.MapSearch.local(q);
+    if (local.length && local[0].score === 0) { pickResult(role, local[0]); return; }
+    renderSug(role, local, { loading: true });
+    const remote = await window.MapSearch.remote(q).catch(() => []);
+    if (my !== st.seq) return;
+    const rows = [...local, ...remote];
+    renderSug(role, rows, { empty: !rows.length });
+  }
+  function toEndpoint(r) {
+    if (r.kind === 'ic' && IC_CODES.has(Number(r.code))) return { kind: 'ic', name: r.label, ll: r.coords };
+    return { kind: 'place', name: String(r.label).slice(0, MAX_NAME), ll: r.coords };
+  }
+  function pickResult(role, r) {
+    closeSug(role);
+    S.q[role] = '';
+    setEndpoint(role, toEndpoint(r));
+  }
+  function onSearchInput(e) {
+    const role = e.target.dataset?.routeQ;
+    if (!role) return;
+    S.q[role] = e.target.value;
+    sugState[role].active = -1;
+    clearTimeout(sugTimer);
+    sugTimer = setTimeout(() => suggestLocal(role), 80);
+  }
+  function onSearchKey(e) {
+    const role = e.target.dataset?.routeQ;
+    if (!role) return;
+    e.stopPropagation();
+    const st = sugState[role];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!st.rows.length) return;
+      e.preventDefault();
+      st.active = (st.active + (e.key === 'ArrowDown' ? 1 : -1) + st.rows.length) % st.rows.length;
+      renderSug(role, st.rows);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.isComposing || e.keyCode === 229) return;
+      if (st.active >= 0 && st.rows[st.active]) pickResult(role, st.rows[st.active]);
+      else searchRemote(role);
+    } else if (e.key === 'Escape') {
+      closeSug(role);
+    }
+  }
+
   // ---------- events ----------
   function onClick(e) {
     const set = e.target.closest('[data-route-set]');
@@ -536,6 +634,14 @@
       return;
     }
     if (!card?.contains(e.target)) return;
+    const sug = e.target.closest('[data-route-sug]');
+    if (sug) {
+      const role = sug.dataset.routeSug;
+      const li = e.target.closest('li[data-i]');
+      if (li) pickResult(role, sugState[role].rows[Number(li.dataset.i)]);
+      else if (e.target.closest('[data-more]')) searchRemote(role);
+      return;
+    }
     const here = e.target.closest('[data-route-here]');
     if (here) {
       useHere(here.dataset.routeHere);
@@ -649,7 +755,23 @@
     map.addControl(new CardControl(), 'top-left');
     document.addEventListener('click', onClick);
     document.addEventListener('change', onChange);
+    card.addEventListener('input', onSearchInput);
+    card.addEventListener('keydown', onSearchKey);
+    card.addEventListener('mousedown', (e) => { if (e.target.closest('[data-route-sug]')) e.preventDefault(); });
+    card.addEventListener('focusin', (e) => {
+      const role = e.target.dataset?.routeQ;
+      if (!role) return;
+      window.MapSearch?.loadPoi?.();
+      if (S.q[role].trim()) suggestLocal(role);
+    });
+    card.addEventListener('focusout', (e) => {
+      const role = e.target.dataset?.routeQ;
+      if (role) setTimeout(() => { if (document.activeElement !== e.target) closeSug(role); }, 150);
+    });
+    // compact by default on small screens so the map stays usable
+    S.collapsed = window.matchMedia('(max-width: 760px)').matches;
     bindPointPicking();
+    renderCard();
     restore();
   }
 

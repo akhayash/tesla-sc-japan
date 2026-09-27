@@ -92,7 +92,7 @@
     for (const f of roadFacilities.features) {
       const p = f.properties;
       const kind = p.code === 2943 || p.code === 2944 ? 'sa' : 'ic';
-      add(kind, String(p.name || '').normalize('NFKC'), p.type, f.geometry.coordinates);
+      add(kind, String(p.name || '').normalize('NFKC'), p.type, f.geometry.coordinates, { code: p.code });
     }
   }
   function loadPoi() {
@@ -442,5 +442,13 @@
       if (!list.hidden && rows.every((r) => r.kind !== 'gsi' && r.kind !== 'osm')) suggest();
     }
   }
-  window.MapSearch = { init, update, search: (q) => { input.value = q; return submit(); } };
+  async function remote(q, signal = new AbortController().signal) {
+    const [g, o] = await Promise.all([searchGsi(q, signal).catch(() => []), searchPhoton(q, signal).catch(() => [])]);
+    return [...g, ...o];
+  }
+  window.MapSearch = {
+    init, update, search: (q) => { input.value = q; return submit(); },
+    // shared with the route card (same index, ranking and remote sources)
+    local: (q) => searchLocal(q), remote, loadPoi, kindInfo: (k) => KIND[k],
+  };
 })();

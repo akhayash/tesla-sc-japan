@@ -2,7 +2,7 @@ import { decodeFlexPolyline } from './flexpolyline.js';
 
 export const HERE_ROUTES = 'https://router.hereapi.com/v8/routes';
 
-export function buildHereUrl({ o, d, vias, departure }, apiKey) {
+export function buildHereUrl({ o, d, vias, departure, alternatives = 0 }, apiKey) {
   const p = new URLSearchParams();
   p.set('transportMode', 'car');
   p.set('origin', `${o[0]},${o[1]}`);
@@ -13,6 +13,7 @@ export function buildHereUrl({ o, d, vias, departure }, apiKey) {
   p.set('currency', 'JPY');
   p.set('tolls[transponders]', 'all');
   p.set('departureTime', departure);
+  if (alternatives > 0) p.set('alternatives', String(alternatives));
   p.set('apikey', apiKey);
   return `${HERE_ROUTES}?${p}`;
 }
@@ -69,10 +70,16 @@ function fareOf(toll) {
   };
 }
 
-/** Reduce a HERE Routing v8 response to what the map needs. */
+/** Reduce a HERE Routing v8 response to what the map needs (first route + alternatives). */
 export function summarize(json) {
-  const route = json?.routes?.[0];
-  if (!route) return null;
+  const routes = json?.routes || [];
+  if (!routes.length) return null;
+  const first = summarizeRoute(routes[0]);
+  const alternatives = routes.slice(1).map(summarizeRoute);
+  return alternatives.length ? { ...first, alternatives } : first;
+}
+
+function summarizeRoute(route) {
   const line = [];
   const tollSpans = [];
   const tolls = [];

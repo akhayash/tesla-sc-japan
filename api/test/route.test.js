@@ -118,6 +118,19 @@ test('simplifies nearly straight lines but keeps corners', () => {
   assert.deepEqual(simplifyIndices(line), [0, 2, 3]);
 });
 
+test('returns alternative routes when requested', () => {
+  const one = fakeHere();
+  const json = { routes: [one.routes[0], one.routes[0]] };
+  const s = summarize(json);
+  assert.equal(s.alternatives.length, 1);
+  assert.equal(s.alternatives[0].etc, 1200);
+  assert.equal(summarize(one).alternatives, undefined);
+  const url = new URL(buildHereUrl({ o: [35, 139], d: [34, 137], vias: [], departure: '2026-09-29T10:00:00+09:00', alternatives: 2 }, 'K'));
+  assert.equal(url.searchParams.get('alternatives'), '2');
+  assert.equal(parseRequest(new URLSearchParams('o=35,139&d=34.9,137.9&alt=1')).alternatives, 2);
+  assert.equal(parseRequest(new URLSearchParams('o=35,139&d=34.9,137.9')).alternatives, 0);
+});
+
 test('client IP parsing trusts only the platform-appended entry', () => {
   assert.equal(clientIp({ 'x-forwarded-for': 'spoofed, 1.2.3.4:5678' }), '1.2.3.4');
   assert.equal(clientIp({ 'x-forwarded-for': '[2001:db8::1]:443' }), '2001:db8::1');

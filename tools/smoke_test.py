@@ -88,12 +88,15 @@ def fake_relay(route):
                              {"section": 1, "system": "NEXCO", "etc": 1170, "cash": None, "entry": None, "exit": {"name": "y", "lng": 138.3915, "lat": 34.9475}}])
         route.fulfill(status=200, content_type="application/json", body=_json.dumps(detour), headers={"Access-Control-Allow-Origin": "*"})
         return
-    route.fulfill(status=200, content_type="application/json", body=_json.dumps(FAKE_ROUTE), headers={"Access-Control-Allow-Origin": "*"})
+    main = dict(FAKE_ROUTE)
+    if "alt=1" in route.request.url:
+        main["alternatives"] = [dict(FAKE_ROUTE, km=75.5, min=56, etc=2280, line=[[137.7877, 34.7479], [137.9, 34.9], [138.1, 34.95], [138.39, 34.947]], tollSpans=[[0, 3]])]
+    route.fulfill(status=200, content_type="application/json", body=_json.dumps(main), headers={"Access-Control-Allow-Origin": "*"})
 
 errors: list[str] = []
 with sync_playwright() as p:
     browser = p.chromium.launch(channel="msedge", headless=True, args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
-    page = browser.new_page(viewport={"width": 1400, "height": 900}, geolocation={"latitude": 34.75, "longitude": 137.80}, permissions=["geolocation"])
+    page = browser.new_page(viewport={"width": 1400, "height": 900}, geolocation={"latitude": 34.75, "longitude": 137.80}, permissions=["geolocation", "clipboard-read", "clipboard-write"])
     page.on("console", lambda m: m.type == "error" and "status of 429" not in m.text and errors.append(m.text))
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/api/route?*", fake_relay)
@@ -218,6 +221,21 @@ with sync_playwright() as p:
                 errors.append(f"IC route request did not use toll-gate points and departure time: {route_requests[-1:]}")
             if "ro=" not in page.url or "rd=" not in page.url:
                 errors.append("route endpoints were not kept in the URL")
+            if page.locator("[data-route-alt]").count() != 2 or "alt=1" not in route_requests[-1]:
+                errors.append("alternative routes were not offered")
+            else:
+                page.click('[data-route-alt="1"]')
+                page.wait_for_timeout(300)
+                if "2,280円" not in page.inner_text(".route-summary") or page.get_attribute('[data-route-alt="1"]', "aria-selected") != "true":
+                    errors.append("switching to the alternative route did not update the card")
+                page.click('[data-route-alt="0"]')
+                page.wait_for_timeout(300)
+            if not page.locator(".route-detour > .route-cands .route-num").count():
+                errors.append("temporary-exit candidates were not numbered to match the map markers")
+            page.click("[data-route-share]")
+            page.wait_for_timeout(300)
+            if "コピーしました" not in page.inner_text("[data-route-share]"):
+                errors.append("route share button did not copy the link")
             names = page.locator(".route-detour > .route-cands .route-cand .name").all_inner_texts()
             if "Yaizu, Japan" not in names:
                 errors.append(f"off-expressway charger candidates were not listed: {names}")

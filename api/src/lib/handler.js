@@ -45,7 +45,7 @@ export async function handleRoute(request, deps) {
     tried += 1;
     let res;
     try {
-      res = await deps.fetch(buildHereUrl({ o, d, vias: req.vias, departure: req.departure }, deps.apiKey));
+      res = await deps.fetch(buildHereUrl({ o, d, vias: req.vias, departure: req.departure, alternatives: req.alternatives }, deps.apiKey));
     } catch (e) {
       deps.log?.(`HERE fetch failed: ${e.message}`);
       if (best) break;

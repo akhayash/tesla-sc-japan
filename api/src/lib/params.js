@@ -72,6 +72,8 @@ export function parseRequest(query) {
     destination: parseEndpoint(get('d'), 'd'),
     vias: parseVias(all('v')),
     departure: parseDeparture(get('t')),
+    // alternative routes, requested only for the main route
+    alternatives: get('alt') === '1' ? 2 : 0,
   };
 }
 

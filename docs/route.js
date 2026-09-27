@@ -10,7 +10,7 @@
   const isIc = (code, name) => IC_CODES.has(Number(code)) || (Number(code) === 2942 && /IC/.test(String(name || '').normalize('NFKC')));
   const MAX_NAME = 40;
 
-  const S = { o: null, d: null, t: '', result: null, loading: false, error: '', seq: 0, stop: 30, detours: new Map(), smartVisits: new Map(), smartPairs: null, detourSel: null, q: { o: '', d: '' } };
+  const S = { o: null, d: null, t: '', result: null, loading: false, error: '', seq: 0, stop: 30, detours: new Map(), smartVisits: new Map(), smartPairs: null, detourSel: null, routes: [], routeIdx: 0, q: { o: '', d: '' } };
   // read before app.js rewrites the hash on the first map move
   const initialHash = new URLSearchParams(location.hash.slice(1));
   let map = null, popup = null, ctx = null, card = null;
@@ -130,6 +130,8 @@
 
   function resetResult() {
     S.result = null;
+    S.routes = [];
+    S.routeIdx = 0;
     S.detours = new Map();
     S.smartVisits = new Map();
     S.detourSel = null;
@@ -152,13 +154,17 @@
     S.loading = true;
     S.error = '';
     renderCard();
-    const q = new URLSearchParams({ o: apiParam(S.o), d: apiParam(S.d) });
+    const q = new URLSearchParams({ o: apiParam(S.o), d: apiParam(S.d), alt: '1' });
     if (S.t) q.set('t', S.t);
     try {
       const res = await fetch(`${API}/route?${q}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({}));
       if (seq !== S.seq) return;
       if (!res.ok) throw Object.assign(new Error(body.error || String(res.status)), { status: res.status, code: body.error });
+      const alts = body.alternatives || [];
+      delete body.alternatives;
+      S.routes = [body, ...alts.map((a) => ({ ...a, used: body.used, departure: body.departure }))];
+      S.routeIdx = 0;
       S.result = body;
     } catch (e) {
       if (seq !== S.seq) return;
@@ -169,6 +175,16 @@
     draw();
     renderCard();
     if (fit) fitRoute();
+  }
+  function selectRoute(i) {
+    if (!S.routes[i] || i === S.routeIdx) return;
+    S.routeIdx = i;
+    S.result = S.routes[i];
+    S.detours = new Map();
+    S.smartVisits = new Map();
+    S.detourSel = null;
+    draw();
+    renderCard();
   }
   function errorText(e) {
     if (e.status === 429) return '短時間のリクエストが多すぎます。1分ほど待ってから再試行してください。';
@@ -434,6 +450,11 @@
   function setupLayers() {
     map.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({
+      id: 'route-alt', type: 'line', source: 'route', filter: ['==', ['get', 'role'], 'alt'],
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': '#94a3b8', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 3, 12, 6], 'line-opacity': 0.8 },
+    });
+    map.addLayer({
       id: 'route-casing', type: 'line', source: 'route', filter: ['==', ['get', 'role'], 'main'],
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 5, 12, 10] },
@@ -459,11 +480,45 @@
       id: 'route-gates', type: 'circle', source: 'route', filter: ['==', ['get', 'role'], 'gate'],
       paint: { 'circle-radius': 4.5, 'circle-color': '#ffffff', 'circle-stroke-color': '#1d4ed8', 'circle-stroke-width': 2.5 },
     });
+    map.addLayer({
+      id: 'route-cand', type: 'circle', source: 'route', filter: ['==', ['get', 'role'], 'cand'],
+      paint: {
+        'circle-radius': 9,
+        'circle-color': ['case', ['get', 'smart'], '#16a34a', '#ea580c'],
+        'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2,
+      },
+    });
+    map.addLayer({
+      id: 'route-cand-label', type: 'symbol', source: 'route', filter: ['==', ['get', 'role'], 'cand'],
+      layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-allow-overlap': true, 'text-ignore-placement': true },
+      paint: { 'text-color': '#ffffff' },
+    });
+    for (const id of ['route-alt', 'route-cand']) {
+      map.on('mouseenter', id, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', id, () => { map.getCanvas().style.cursor = ''; });
+    }
+    map.on('click', 'route-alt', (e) => selectRoute(Number(e.features[0].properties.idx)));
+    map.on('click', 'route-cand', (e) => {
+      const p = e.features[0].properties;
+      if (p.smart) {
+        const item = smartCandidates().find((c) => c.key === p.key);
+        if (item) computeSmart(item);
+      } else {
+        const item = candidates().off.find((c) => c.id === p.key);
+        if (item) computeDetour(item);
+      }
+      S.collapsed = false;
+      card?.querySelector(`[data-cand="${CSS.escape(p.key)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
   }
+  const letter = (i) => String.fromCharCode(65 + (i % 26));
   function draw() {
     if (!map?.getSource('route')) return;
     const features = [];
     const r = S.result;
+    S.routes.forEach((alt, i) => {
+      if (i !== S.routeIdx && alt.line?.length) features.push({ type: 'Feature', properties: { role: 'alt', idx: i }, geometry: { type: 'LineString', coordinates: alt.line } });
+    });
     if (r?.line?.length) {
       const inToll = new Uint8Array(r.line.length);
       for (const [a, b] of r.tollSpans || []) for (let i = a; i <= b; i++) inToll[i] = 1;
@@ -478,6 +533,10 @@
       }
       for (const t of r.tolls || []) {
         for (const p of [t.entry, t.exit]) if (p) features.push({ type: 'Feature', properties: { role: 'gate' }, geometry: { type: 'Point', coordinates: [p.lng, p.lat] } });
+      }
+      if (r.hasToll) {
+        candidates().off.forEach((c, i) => features.push({ type: 'Feature', properties: { role: 'cand', smart: false, key: c.id, label: String(i + 1) }, geometry: { type: 'Point', coordinates: c.ll } }));
+        smartCandidates().forEach((c, i) => features.push({ type: 'Feature', properties: { role: 'cand', smart: true, key: c.key, label: letter(i) }, geometry: { type: 'Point', coordinates: c.charger.ll } }));
       }
       const selId = String(S.detourSel || '');
       const det = selId && !selId.startsWith('sv:') && S.detours.get(selId.replace(/:visit$/, ''));
@@ -563,7 +622,8 @@
         out.push(`<a href="https://www.driveplaza.com/dp/SearchQuick?${q}" target="_blank" rel="noopener">公式料金（ドラぷら）</a>`);
       }
     }
-    return out.length ? `<div class="popup-links route-links">${out.join('')}</div>` : '';
+    const share = S.o && S.d && !S.o.here && !S.d.here ? '<button type="button" class="share-link" data-route-share>🔗 この経路のリンクをコピー</button>' : '';
+    return (out.length ? `<div class="popup-links route-links">${out.join('')}</div>` : '') + share;
   }
   function epRow(role) {
     const ep = S[role];
@@ -598,6 +658,7 @@
     } else if (r) {
       const tolls = (r.tolls || []).map((t) => `<tr><td>${gateLabel(t.entry)} → ${gateLabel(t.exit)}<br><span class="muted">${esc(t.system)}</span></td><td>${yen(t.etc)}</td></tr>`).join('');
       body = `
+        ${altTabs()}
         <div class="route-summary">
           <div><span class="muted">ETC</span><b>${yen(r.etc)}</b></div>
           <div><span class="muted">距離</span><b>${r.km} km</b></div>
@@ -635,6 +696,11 @@
     }
   }
 
+  function altTabs() {
+    if (S.routes.length < 2) return '';
+    return `<div class="route-alts" role="tablist" aria-label="経路の候補">${S.routes.map((rt, i) => `<button type="button" role="tab" aria-selected="${i === S.routeIdx}" class="${i === S.routeIdx ? 'active' : ''}" data-route-alt="${i}">
+        <span>ルート${i + 1}</span><b>${yen(rt.etc)}</b><small>${fmtMin(rt.min)} · ${rt.km}km</small></button>`).join('')}</div>`;
+  }
   function candidates() {
     const r = S.result;
     const key = JSON.stringify(ctx.getChargerFilter?.() || {});
@@ -645,7 +711,7 @@
     return r._cands;
   }
   const signedYen = (v) => (v > 0 ? `+${yen(v)}` : v < 0 ? `−${yen(-v)}` : '±0円');
-  function detourRow(item) {
+  function detourRow(item, i) {
     const det = S.detours.get(item.id);
     const dot = `<i class="route-net ${item.network === 'flash' ? 'flash' : 'tesla'}"></i>`;
     let res = `<button type="button" class="route-calc" data-route-detour="${esc(item.id)}">追加料金を計算</button>`;
@@ -670,9 +736,9 @@
           <span>${det.dKm >= 0 ? '+' : '−'}${Math.abs(det.dKm)}km · ${det.dMin >= 0 ? '+' : '−'}${Math.abs(det.dMin)}分</span>
         </button>${exitTxt ? `<div class="muted route-exit">${exitTxt}</div>` : ''}${smart}${visit}`;
     }
-    return `<li><div class="route-cand">${dot}<span class="name" title="${esc(item.name)}">${esc(item.name)}</span><span class="muted">${item.d.toFixed(1)}km</span></div>${res}</li>`;
+    return `<li data-cand="${esc(item.id)}"><div class="route-cand"><span class="route-num">${i + 1}</span>${dot}<span class="name" title="${esc(item.name)}">${esc(item.name)}</span><span class="muted">${item.d.toFixed(1)}km</span></div>${res}</li>`;
   }
-  function smartRow(item) {
+  function smartRow(item, i) {
     const v = S.smartVisits.get(item.key);
     const c = item.charger;
     const dot = `<i class="route-net ${c.network === 'flash' ? 'flash' : 'tesla'}"></i>`;
@@ -688,7 +754,7 @@
         : `<button type="button" class="route-det-result${sel}" data-route-show="sv:${esc(item.key)}"><b class="${v.dEtc > 0 ? 'up' : ''}">${signedYen(v.dEtc)}</b><span>${v.dKm >= 0 ? '+' : '−'}${Math.abs(v.dKm)}km · ${v.dMin >= 0 ? '+' : '−'}${Math.abs(v.dMin)}分</span></button>
            <div class="muted route-exit">${v.reason === 'time' ? `戻るまで約${Math.round(v.offMin)}分で、${smartLimit(item.pair) / 60}時間を超えるため対象外の見込み（充電時間を短くすると対象になる場合があります）` : `同じIC（${esc(String(item.pair.ic).normalize('NFKC'))}）から戻る経路にならないため対象外の見込み`}</div>`;
     }
-    return `<li><div class="route-cand">${dot}<span class="name" title="${esc(c.name)}">${esc(c.name)}</span><span class="muted">${where}</span></div>${res}</li>`;
+    return `<li data-cand="${esc(item.key)}"><div class="route-cand"><span class="route-num smart">${letter(i)}</span>${dot}<span class="name" title="${esc(c.name)}">${esc(c.name)}</span><span class="muted">${where}</span></div>${res}</li>`;
   }
   function smartHtml() {
     const list = smartCandidates();
@@ -702,7 +768,7 @@
     return `<div class="route-smart-list">
       <div class="route-smart-head">賢い料金で寄れる充電器<small>ETC2.0車：${groups.length === 1 ? '' : '各'}ICで降りて、先に道の駅に寄ってから充電し、2時間以内に同じICから同じ方向へ戻れば直行と同じ料金</small></div>
       ${groups.map((g) => `<div class="route-smart-pair">${esc(String(g.pair.ic).normalize('NFKC'))} ⇄ 道の駅「${esc(g.pair.station)}」</div>
-        <ul class="route-cands">${g.items.map(smartRow).join('')}</ul>`).join('')}
+        <ul class="route-cands">${g.items.map((it) => smartRow(it, list.indexOf(it))).join('')}</ul>`).join('')}
     </div>`;
   }
   function detourHtml() {
@@ -715,7 +781,7 @@
       <summary>充電で一時退出したときの料金</summary>
       <label class="route-stop">充電時間 <select data-route-stop>${stopOpts}</select></label>
       ${smartHtml()}
-      ${off.length ? `<ul class="route-cands">${off.map(detourRow).join('')}</ul>` : '<p class="route-hint">経路の有料区間から5km以内に、高速道路を降りて使う充電器はありません。</p>'}
+      ${off.length ? `<ul class="route-cands">${off.map((c, i) => detourRow(c, i)).join('')}</ul>` : '<p class="route-hint">経路の有料区間から5km以内に、高速道路を降りて使う充電器はありません。</p>'}
       ${onTxt}
       <div class="muted route-note">一度降りると料金が2回分に分かれ、ターミナルチャージや長距離逓減の分だけ高くなることがあります。直行した場合との差額です（距離・時間は充電時間を除く）。「賢い料金」はETC2.0車で、対象の道の駅の出入口にあるアンテナの通過が条件です。</div>
     </details>`;
@@ -853,6 +919,10 @@
       const id = e.target.closest('[data-route-detour]').dataset.routeDetour;
       const item = S.result && candidates().off.find((c) => c.id === id);
       if (item) computeDetour(item);
+    } else if (e.target.closest('[data-route-alt]')) {
+      selectRoute(Number(e.target.closest('[data-route-alt]').dataset.routeAlt));
+    } else if (e.target.closest('[data-route-share]')) {
+      copyRouteLink(e.target.closest('[data-route-share]'));
     } else if (e.target.closest('[data-route-smart]')) {
       const key = e.target.closest('[data-route-smart]').dataset.routeSmart;
       const item = S.result && smartCandidates().find((c) => c.key === key);
@@ -862,6 +932,18 @@
       S.detourSel = S.detourSel === id ? null : id;
       draw();
       renderCard();
+    }
+  }
+  async function copyRouteLink(button) {
+    ctx.writeHash();
+    const url = location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      button.textContent = '✓ リンクをコピーしました';
+      button.classList.add('copied');
+      setTimeout(() => { button.textContent = '🔗 この経路のリンクをコピー'; button.classList.remove('copied'); }, 2000);
+    } catch {
+      window.prompt('このURLをコピーしてください', url);
     }
   }
   function onChange(e) {

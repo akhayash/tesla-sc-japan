@@ -31,6 +31,7 @@ CASES = {
     "b_near": "#mode=B&layer=near&tesla=1&flash=1&at=139.7,35.68,10",
     "route_ic": "#mode=B&layer=none&ro=ic~137.78770,34.74793~浜松ＩＣ&rd=ic~138.39152,34.94767~静岡ＩＣ&rt=2026-09-29T10:00",
     "route_point": "#mode=B&layer=none&at=137.9,34.85,10",
+    "route_here": "#mode=B&layer=none&at=138.2,34.9,10",
 }
 
 # Synthetic relay responses (the real relay calls HERE; smoke tests never do).
@@ -67,7 +68,7 @@ def fake_relay(route):
 errors: list[str] = []
 with sync_playwright() as p:
     browser = p.chromium.launch(channel="msedge", headless=True, args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
-    page = browser.new_page(viewport={"width": 1400, "height": 900})
+    page = browser.new_page(viewport={"width": 1400, "height": 900}, geolocation={"latitude": 34.75, "longitude": 137.80}, permissions=["geolocation"])
     page.on("console", lambda m: m.type == "error" and "status of 429" not in m.text and errors.append(m.text))
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/api/route?*", fake_relay)
@@ -228,6 +229,23 @@ with sync_playwright() as p:
             page.click("[data-route-retry]")
             page.wait_for_selector(".route-summary", timeout=10000)
             page.screenshot(path=str(OUT / "route_point_done.png"))
+        if name == "route_here":
+            n0 = len(route_requests)
+            page.mouse.click(1000, 400, button="right")
+            page.wait_for_timeout(400)
+            page.click(".maplibregl-popup-content [data-route-from-here]")
+            page.wait_for_selector(".route-summary", timeout=10000)
+            card = page.inner_text(".route-card")
+            if "現在地" not in card or len(route_requests) != n0 + 1 or "o=34.75000%2C137.80000" not in route_requests[-1]:
+                errors.append(f"'current location to here' did not route from the device location: {route_requests[-1:]}")
+            if "ro=" in page.url or "rd=" not in page.url:
+                errors.append("device location leaked into the URL (or destination was not kept)")
+            page.click('[data-route-clear="o"]')
+            page.click('[data-route-here="o"]')
+            page.wait_for_selector(".route-summary", timeout=10000)
+            if len(route_requests) != n0 + 2:
+                errors.append("card 'current location' button did not recompute the route")
+            page.screenshot(path=str(OUT / "route_here.png"))
         if name == "b_none":
             if page.locator('[data-key="layer"] button.active').count():
                 errors.append("no-mesh state was not restored from URL")

@@ -4,6 +4,14 @@
 サイト上の表示：[リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)。バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 充電器データの週次自動更新はバージョンに含めません。
 
+## [1.3.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.2.0...v1.3.0) - 2026-09-27
+
+**現在地から経路を設定**
+
+### 追加
+- IC・施設・充電器・地図上の地点のポップアップに「現在地からここまで」を追加（ワンタップで現在地から経路と料金を表示）
+- 経路カードの未設定の出発地・到着地に「現在地」ボタンを追加。現在地はURL（共有リンク）には保存しません
+
 ## [1.2.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.1.0...v1.2.0) - 2026-09-27
 
 **経路と高速料金、充電で一時退出したときの料金**

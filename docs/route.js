@@ -67,6 +67,7 @@
     return `<div class="route-set" aria-label="経路・料金">
       <button type="button" data-route-set="o" ${attrs}><b>S</b>ここから</button>
       <button type="button" data-route-set="d" ${attrs}><b>G</b>ここまで</button>
+      ${navigator.geolocation ? `<button type="button" class="route-from-here" data-route-from-here ${attrs}>${LOCATE_ICON}現在地からここまで</button>` : ''}
     </div>`;
   }
   function facilityButtonsHtml(props, ll) {
@@ -83,6 +84,45 @@
     renderCard();
     if (S.o && S.d) compute();
     else fitEndpoints();
+  }
+
+  // ---------- current location ----------
+  const LOCATE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="7" fill="none"/></svg>';
+  function locate() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) { reject(Object.assign(new Error('unsupported'), { code: 'unsupported' })); return; }
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve([p.coords.longitude, p.coords.latitude]),
+        reject,
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+      );
+    });
+  }
+  /** Sets `role` to the device location; `other` (optional) is set as the opposite endpoint first. */
+  async function useHere(role, other) {
+    if (other) {
+      S[role === 'o' ? 'd' : 'o'] = await withGate(other);
+      resetResult();
+      popup?.remove();
+    }
+    S.locating = role;
+    S.error = '';
+    draw();
+    renderCard();
+    try {
+      const ll = await locate();
+      if (!(ll[0] > 122 && ll[0] < 154 && ll[1] > 20 && ll[1] < 46)) throw Object.assign(new Error('outside'), { code: 'outside' });
+      S.locating = null;
+      await setEndpoint(role, { kind: 'place', name: '現在地', ll, here: true });
+    } catch (e) {
+      S.locating = null;
+      S.error = e.code === 1 ? '位置情報の利用が許可されていません。ブラウザの設定を確認してください。'
+        : e.code === 'outside' ? '現在地が日本国外のため計算できません。'
+          : '現在地を取得できませんでした。';
+      ctx.writeHash();
+      draw();
+      renderCard();
+    }
   }
 
   function resetResult() {
@@ -388,7 +428,12 @@
   function epRow(role) {
     const ep = S[role];
     const label = role === 'o' ? '出発' : '到着';
-    if (!ep) return `<div class="route-ep empty"><span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span><span>${label}地を選んでください</span></div>`;
+    if (!ep) {
+      const here = S.locating === role
+        ? '<span class="muted route-locating">現在地を取得中…</span>'
+        : navigator.geolocation ? `<button type="button" class="route-here" data-route-here="${role}">${LOCATE_ICON}現在地</button>` : '';
+      return `<div class="route-ep empty"><span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span><span class="name">${label}地を選んでください</span>${here}</div>`;
+    }
     const warn = ep.kind === 'ic' && !ep.gate ? '<span class="route-warn" title="料金所の位置が見つからないため、IC付近の地点から計算します">位置は概略</span>' : '';
     return `<div class="route-ep"><span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span><span class="name">${esc(ep.name.normalize('NFKC'))}</span>${warn}<button type="button" class="route-x" data-route-clear="${role}" aria-label="${label}地を解除">×</button></div>`;
   }
@@ -484,7 +529,18 @@
       setEndpoint(set.dataset.routeSet, { kind: set.dataset.kind === 'ic' ? 'ic' : 'place', name: set.dataset.name || '選択した地点', ll });
       return;
     }
+    const fromHere = e.target.closest('[data-route-from-here]');
+    if (fromHere) {
+      const ll = fromHere.dataset.ll.split(',').map(Number);
+      useHere('o', { kind: fromHere.dataset.kind === 'ic' ? 'ic' : 'place', name: fromHere.dataset.name || '選択した地点', ll });
+      return;
+    }
     if (!card?.contains(e.target)) return;
+    const here = e.target.closest('[data-route-here]');
+    if (here) {
+      useHere(here.dataset.routeHere);
+      return;
+    }
     const clear = e.target.closest('[data-route-clear]');
     if (clear) {
       S[clear.dataset.routeClear] = null;
@@ -565,8 +621,9 @@
 
   // ---------- hash ----------
   function writeHash(p) {
-    if (S.o) p.set('ro', encodeEp(S.o));
-    if (S.d) p.set('rd', encodeEp(S.d));
+    // the device location is never written to the URL (it would leak through shared links)
+    if (S.o && !S.o.here) p.set('ro', encodeEp(S.o));
+    if (S.d && !S.d.here) p.set('rd', encodeEp(S.d));
     if ((S.o || S.d) && S.t) p.set('rt', S.t);
   }
   async function restore() {

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decodeFlexPolyline } from '../src/lib/flexpolyline.js';
 import { attempts, BadRequest, parseDeparture, parseEndpoint, parseRequest, parseVias } from '../src/lib/params.js';
-import { buildHereUrl, simplifyIndices, summarize } from '../src/lib/here.js';
+import { buildHereUrl, discountOf, simplifyIndices, summarize } from '../src/lib/here.js';
 import { clientIp, IpLimiter, jstDay, MemoryCounter, TableCounter } from '../src/lib/limits.js';
 import { handleRoute } from '../src/lib/handler.js';
 
@@ -93,7 +93,7 @@ export function fakeHere({ fare = 1200, cashFare = 1300, wait = 0 } = {}) {
     routes: [{
       sections: [
         sec('BFoz5xJ67i1B1B7PzIhaxL7Y', [], [{ offset: 0 }], { wait }),
-        sec('BFoz5xJ67i1B1B7PzIhaxL7Y', [toll], [{ offset: 0 }, { offset: 1, tollSystems: [0] }, { offset: 3 }]),
+        { ...sec('BFoz5xJ67i1B1B7PzIhaxL7Y', [toll], [{ offset: 0 }, { offset: 1, tollSystems: [0] }, { offset: 3 }]), tollSystems: [{ id: 1, name: 'NEXCO' }] },
       ],
     }],
   };
@@ -108,7 +108,7 @@ test('summarizes sections, tolls and toll spans', () => {
   assert.equal(s.hasToll, true);
   assert.equal(s.line.length, 7);
   assert.deepEqual(s.line[0], [8.69821, 50.10228]);
-  assert.deepEqual(s.tollSpans, [[4, 6]]);
+  assert.deepEqual(s.tollSpans, [[4, 6, 'NEXCO']]);
   assert.equal(s.tolls[0].entry.name, 'A');
   assert.equal(s.sections[0].wait, 30);
   assert.equal(s.sections[0].min, 30);
@@ -130,6 +130,13 @@ test('returns alternative routes when requested', () => {
   assert.equal(url.searchParams.get('alternatives'), '2');
   assert.equal(parseRequest(new URLSearchParams('o=35,139&d=34.9,137.9&alt=1')).alternatives, 2);
   assert.equal(parseRequest(new URLSearchParams('o=35,139&d=34.9,137.9')).alternatives, 0);
+});
+
+test('detects night and holiday discounts from applicableTimes', () => {
+  assert.equal(discountOf('(h0){h4}'), 'night');
+  assert.equal(discountOf('*+(t1){d1}(t7){d1}(h4){h19m59}'), 'holiday');
+  assert.equal(discountOf('*(t2){d5}(h4){h19m59}'), null);
+  assert.equal(discountOf(undefined), null);
 });
 
 test('client IP parsing trusts only the platform-appended entry', () => {

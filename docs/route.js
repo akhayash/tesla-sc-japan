@@ -43,6 +43,43 @@
   const f5 = (x) => Number(x).toFixed(5);
   const inJapan = (ll) => ll[0] > 122 && ll[0] < 154 && ll[1] > 20 && ll[1] < 46;
 
+  // ---------- place categories (icon + label in the panel) ----------
+  const BOLT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>';
+  const CAT = {
+    tesla: { label: 'テスラSC', cls: 'tesla', icon: BOLT },
+    flash: { label: 'FLASH', cls: 'flash', icon: BOLT },
+    michinoeki: { label: '道の駅', cls: 'michi', icon: '駅' },
+    ic: { label: 'IC', cls: 'ic', icon: 'IC' },
+    sa: { label: 'SA/PA', cls: 'sa', icon: 'P' },
+    mall: { label: 'モール', cls: 'mall', icon: 'M' },
+    here: { label: '現在地', cls: 'here', icon: '◎' },
+  };
+  const CAT_KEYS = Object.keys(CAT);
+  const svg = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const ICON = {
+    swap: svg('<path d="M7 4v14m0 0-3-3m3 3 3-3M17 20V6m0 0-3 3m3-3 3 3"/>'),
+    collapse: svg('<path d="m6 15 6-6 6 6"/>'),
+    expand: svg('<path d="m6 9 6 6 6-6"/>'),
+    close: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
+  };
+  const catIcon = (cat) => (CAT[cat] ? `<span class="route-cat ${CAT[cat].cls}" title="${CAT[cat].label}">${CAT[cat].icon}</span>` : '');
+  function displayName(ep) {
+    const n = nfkc(ep.name);
+    return ep.cat === 'tesla' || ep.cat === 'flash' ? n.replace(/, Japan\b/, '') : n;
+  }
+  /** Where a charger is (the 道の駅 / SA / mall it sits in), shown under its name. */
+  function describe(ep) {
+    if (ep.cat !== 'tesla' && ep.cat !== 'flash') return;
+    const st = stationPair(ep.ll);
+    if (st) { ep.sub = `道の駅 ${st.station}内`; return; }
+    Promise.resolve(window.MapSearch?.loadPoi?.()).then(() => {
+      const near = window.MapSearch?.nearest?.(ep.ll, ['michinoeki', 'sa', 'mall'], 0.35);
+      if (!near) return;
+      ep.sub = `${near.kind === 'michinoeki' && !/^道の駅/.test(near.label) ? '道の駅 ' : ''}${near.label}内`;
+      renderCard();
+    });
+  }
+
   // ---------- roles: 'o', 'd', 'v0'..'v2' ----------
   const viaIndex = (role) => (/^v\d$/.test(role) ? Number(role.slice(1)) : -1);
   function epOf(role) {
@@ -90,25 +127,27 @@
 
   // ---------- hash encoding ----------
   const cleanName = (s) => String(s || '').replace(/[~|]/g, ' ').slice(0, MAX_NAME);
-  function encodeEp(ep) {
-    return `${ep.kind}~${f5(ep.ll[0])},${f5(ep.ll[1])}~${cleanName(ep.name)}`;
+  function encodeEp(ep, stop = '') {
+    return `${ep.kind}~${f5(ep.ll[0])},${f5(ep.ll[1])}~${cleanName(ep.name)}~${stop}~${CAT[ep.cat] ? ep.cat : ''}`;
   }
   function decodeEp(str) {
-    const m = /^(ic|place)~(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)~([^~|]{0,40})(?:~(\d{1,2}))?$/.exec(str || '');
+    const m = /^(ic|place)~(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)~([^~|]{0,40})(?:~(\d{0,2}))?(?:~([a-z]{0,12}))?$/.exec(str || '');
     if (!m) return null;
     const ll = [Number(m[2]), Number(m[3])];
     if (!inJapan(ll)) return null;
     const ep = { kind: m[1], ll, name: m[4] || '選択した地点' };
-    if (m[5] !== undefined && STOP_OPTIONS.includes(Number(m[5]))) ep.stop = Number(m[5]);
+    if (m[5] && STOP_OPTIONS.includes(Number(m[5]))) ep.stop = Number(m[5]);
+    if (CAT_KEYS.includes(m[6])) ep.cat = m[6];
+    else if (ep.kind === 'ic') ep.cat = 'ic';
     return ep;
   }
 
   // ---------- public helpers for popups ----------
   const LOCATE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="7" fill="none"/></svg>';
   /** stop: default stop minutes when used as a waypoint (charger 30, 道の駅 5). */
-  function buttonsHtml({ kind = 'place', name, ll, stop = 0 }) {
+  function buttonsHtml({ kind = 'place', name, ll, stop = 0, cat = '' }) {
     if (!API || !ll) return '';
-    const attrs = `data-kind="${esc(kind)}" data-name="${esc(cleanName(name))}" data-ll="${f5(ll[0])},${f5(ll[1])}" data-stop="${Number(stop) || 0}"`;
+    const attrs = `data-kind="${esc(kind)}" data-name="${esc(cleanName(name))}" data-ll="${f5(ll[0])},${f5(ll[1])}" data-stop="${Number(stop) || 0}" data-cat="${CAT[cat] ? cat : kind === 'ic' ? 'ic' : ''}"`;
     return `<div class="route-set" aria-label="経路・料金">
       <button type="button" data-route-set="o" ${attrs}><b>S</b>ここから</button>
       <button type="button" data-route-set="v" ${attrs} title="経路の途中に立ち寄る"><b class="v">+</b>経由地</button>
@@ -125,6 +164,7 @@
       name: ds.name || '選択した地点',
       ll: ds.ll.split(',').map(Number),
       stop: Number(ds.stop) || 0,
+      cat: CAT[ds.cat] ? ds.cat : '',
     };
   }
 
@@ -138,6 +178,7 @@
   }
   async function setRole(role, ep) {
     const withG = await withGate(ep);
+    describe(withG);
     if (role === 'o') S.o = withG;
     else if (role === 'd') S.d = withG;
     else {
@@ -196,7 +237,7 @@
       const ll = await locate();
       if (!inJapan(ll)) throw Object.assign(new Error('outside'), { code: 'outside' });
       S.locating = null;
-      await setEndpoint(role, { kind: 'place', name: '現在地', ll, here: true });
+      await setEndpoint(role, { kind: 'place', name: '現在地', ll, here: true, cat: 'here' });
     } catch (e) {
       S.locating = null;
       S.error = e.code === 1 ? '位置情報の利用が許可されていません。ブラウザの設定を確認してください。'
@@ -396,6 +437,13 @@
   }
 
   // ---------- map ----------
+  const SYSTEM_COLORS = ['#1d4ed8', '#7c3aed', '#0e7490', '#be185d', '#4d7c0f', '#b45309'];
+  /** Stable index of a toll system within a route (order of first appearance in the fares). */
+  function systemIndex(r, sys) {
+    r._systems ??= [...new Set([...(r.tolls || []).map((t) => t.system), ...(r.tollSpans || []).map((s) => s[2])].filter(Boolean))];
+    const i = r._systems.indexOf(sys || '');
+    return i >= 0 ? i : 0;
+  }
   function setupLayers() {
     map.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({
@@ -412,7 +460,7 @@
       id: 'route-line', type: 'line', source: 'route', filter: ['==', ['get', 'role'], 'main'],
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': ['case', ['get', 'toll'], '#1d4ed8', '#60a5fa'],
+        'line-color': ['case', ['get', 'toll'], ['coalesce', ['get', 'color'], '#1d4ed8'], '#93c5fd'],
         'line-width': ['interpolate', ['linear'], ['zoom'], 5, 3, 12, 6],
       },
     });
@@ -441,14 +489,15 @@
       if (i !== S.routeIdx && alt.line?.length) features.push({ type: 'Feature', properties: { role: 'alt', idx: i }, geometry: { type: 'LineString', coordinates: alt.line } });
     });
     if (r?.line?.length) {
-      const inToll = new Uint8Array(r.line.length);
-      for (const [a, b] of r.tollSpans || []) for (let i = a; i <= b; i++) inToll[i] = 1;
-      // split into toll / non-toll runs so the toll part can be styled
+      // colour each toll operator's stretch (spans carry the toll system name)
+      const sysAt = new Int16Array(r.line.length).fill(-1);
+      for (const [a, b, sys] of r.tollSpans || []) for (let i = a; i <= b; i++) sysAt[i] = systemIndex(r, sys);
       let start = 0;
       for (let i = 1; i <= r.line.length; i++) {
-        if (i === r.line.length || inToll[i] !== inToll[start]) {
+        if (i === r.line.length || sysAt[i] !== sysAt[start]) {
           const end = Math.min(i, r.line.length - 1);
-          if (end > start) features.push({ type: 'Feature', properties: { role: 'main', toll: !!inToll[start] }, geometry: { type: 'LineString', coordinates: r.line.slice(start, end + 1) } });
+          const si = sysAt[start];
+          if (end > start) features.push({ type: 'Feature', properties: { role: 'main', toll: si >= 0, color: si >= 0 ? SYSTEM_COLORS[si % SYSTEM_COLORS.length] : null }, geometry: { type: 'LineString', coordinates: r.line.slice(start, end + 1) } });
           start = i;
         }
       }
@@ -530,8 +579,8 @@
         out.push(`<a href="https://www.driveplaza.com/dp/SearchQuick?${q}" target="_blank" rel="noopener">公式料金（ドラぷら）</a>`);
       }
     }
-    const share = S.o && S.d && !S.o.here && !S.d.here ? '<button type="button" class="share-link" data-route-share>🔗 この経路のリンクをコピー</button>' : '';
-    return (out.length ? `<div class="popup-links route-links">${out.join('')}</div>` : '') + share;
+    if (S.o && S.d && !S.o.here && !S.d.here) out.push('<button type="button" data-route-share>リンクをコピー</button>');
+    return out.length ? `<div class="route-actions">${out.join('')}</div>` : '';
   }
   function searchBox(role, placeholder) {
     return `<div class="route-search"><input type="search" class="route-q" data-route-q="${role}" value="${esc(S.q[role] || '')}" placeholder="${placeholder}" autocomplete="off" spellcheck="false" aria-label="${placeholder}" aria-autocomplete="list" aria-controls="route-sug-${role}">
@@ -548,7 +597,12 @@
       return `<div class="route-ep empty">${pin}${searchBox(role, `${label}地を検索、または地図で選択`)}${here}</div>`;
     }
     const warn = ep.kind === 'ic' && !ep.gate ? '<span class="route-warn" title="料金所の位置が見つからないため、IC付近の地点から計算します">位置は概略</span>' : '';
-    return `<div class="route-ep">${pin}<span class="name">${esc(nfkc(ep.name))}</span>${warn}<button type="button" class="route-x" data-route-clear="${role}" aria-label="${label}地を解除">×</button></div>`;
+    return `<div class="route-ep">${pin}${catIcon(ep.cat)}${nameHtml(ep)}${warn}<button type="button" class="route-x" data-route-clear="${role}" aria-label="${label}地を解除">×</button></div>`;
+  }
+  function nameHtml(ep) {
+    const n = displayName(ep);
+    const tag = CAT[ep.cat] && ep.cat !== 'ic' && ep.cat !== 'here' && !n.startsWith(CAT[ep.cat].label) ? `<em>${CAT[ep.cat].label}</em>` : '';
+    return `<span class="name" title="${esc(n)}"><span class="n">${esc(n)}${tag}</span>${ep.sub ? `<small>${esc(ep.sub)}</small>` : ''}</span>`;
   }
   function viaRow(i, n) {
     const v = S.vias[i];
@@ -558,23 +612,29 @@
     if (v.empty) return `<div class="route-ep empty via">${pin}${searchBox(role, '経由地（充電器・道の駅など）を検索')}${remove}</div>`;
     const opts = STOP_OPTIONS.map((m) => `<option value="${m}"${m === v.stop ? ' selected' : ''}>${m ? `${m}分` : '通過'}</option>`).join('');
     const smart = stationPair(v.ll) ? '<span class="route-tag smart" title="賢い料金の対象の道の駅">賢い料金</span>' : '';
-    return `<div class="route-ep via">${pin}<span class="name" title="${esc(nfkc(v.name))}">${esc(nfkc(v.name))}</span>${smart}
+    return `<div class="route-ep via">${pin}${catIcon(v.cat)}${nameHtml(v)}${smart}
       <select class="route-stop-sel" data-route-stop="${i}" aria-label="経由地${n}での停車時間">${opts}</select>${remove}</div>`;
   }
   function waypointRows() {
     let n = 0;
     const vias = S.vias.map((v, i) => viaRow(i, v.empty ? '·' : ++n)).join('');
     const add = S.vias.length < MAX_VIAS ? '<button type="button" class="route-add-via" data-route-add-via>＋ 経由地を追加</button>' : '';
-    return `${epRow('o')}${vias}${epRow('d')}${add}`;
+    return `<div class="route-stops">${epRow('o')}${vias}${epRow('d')}</div>${add}`;
   }
   function altTabs() {
     if (S.routes.length < 2) return '';
     return `<div class="route-alts" role="tablist" aria-label="経路の候補">${S.routes.map((rt, i) => `<button type="button" role="tab" aria-selected="${i === S.routeIdx}" class="${i === S.routeIdx ? 'active' : ''}" data-route-alt="${i}">
         <span>ルート${i + 1}</span><b>${yen(rt.etc)}</b><small>${fmtMin(rt.min)} · ${rt.km}km</small></button>`).join('')}</div>`;
   }
+  function discountHtml(r) {
+    const kinds = new Set((r.tolls || []).map((t) => t.discount).filter(Boolean));
+    if (!kinds.size) return '';
+    const label = { night: '深夜割引（0〜4時）', holiday: '休日割引' };
+    return `<div class="route-disc">${[...kinds].map((k) => `<span>${label[k] || k}</span>`).join('')}適用（出発日時で変わります）</div>`;
+  }
   function viaName(i) {
     const v = realVias()[i];
-    return v ? esc(nfkc(v.name)) : '';
+    return v ? esc(displayName(v)) : '';
   }
   function analysisHtml() {
     const a = S.analysis;
@@ -587,7 +647,12 @@
       const names = g.members.map(viaName).filter(Boolean).join('・');
       const where = g.sameIc ? `${esc(nfkc(g.exitIc))}で降りて同じICから戻る` : `${esc(nfkc(g.exitIc || '?'))}で降りて${esc(nfkc(g.entryIc || '?'))}から戻る`;
       let note = '<span class="route-tag split">料金が2回に分かれます</span>';
-      if (g.smart?.ok) note = `<span class="route-tag smart">賢い料金：降りなかった扱い（約${g.offMin}分で戻る）</span>`;
+      if (g.smart?.ok) {
+        const inside = g.members.some((i) => realVias()[i] && realVias()[i].cat !== 'michinoeki' && km(realVias()[i].ll, g.smart.pair.station_coords) <= AT_STATION_KM);
+        const visited = g.members.some((i) => realVias()[i]?.cat === 'michinoeki');
+        const why = visited ? `道の駅「${esc(g.smart.pair.station)}」に立ち寄り` : inside ? `充電器が道の駅「${esc(g.smart.pair.station)}」の敷地内にあるため立ち寄り条件を満たす` : `道の駅「${esc(g.smart.pair.station)}」に立ち寄り`;
+        note = `<span class="route-tag smart">賢い料金：降りなかった扱い（${why}・約${g.offMin}分で戻る）</span><div class="muted route-smart-cond">条件：ETC2.0車で、道の駅の出入口のアンテナを通過し、${esc(nfkc(g.smart.pair.ic))}から同じ方向へ${smartLimit(g.smart.pair) / 60}時間以内に戻ること</div>`;
+      }
       else if (g.smart) note = `<span class="route-tag split">戻るまで約${g.offMin}分で${smartLimit(g.smart.pair) / 60}時間を超えるため、賢い料金の対象外の見込み</span>`;
       else if (g.stationPair) note = `<span class="route-tag split">${esc(nfkc(g.stationPair.ic))}で降りて同じICに戻る経路にならないため、賢い料金の対象外の見込み</span>`;
       const hint = g.hintPair && realVias().length < MAX_VIAS
@@ -614,23 +679,27 @@
       body = `<p class="route-error">${esc(S.error)}</p><button type="button" class="route-retry" data-route-retry>再試行</button>`;
     } else if (r) {
       const etc = S.analysis?.smartApplied ? S.analysis.effective : r.etc;
-      const tolls = (r.tolls || []).map((t) => `<tr><td>${gateLabel(t.entry)} → ${gateLabel(t.exit)}<br><span class="muted">${esc(t.system)}</span></td><td>${yen(t.etc)}</td></tr>`).join('');
+      const discLabel = { night: '深夜', holiday: '休日' };
+      const tolls = (r.tolls || []).map((t) => {
+        const color = SYSTEM_COLORS[systemIndex(r, t.system) % SYSTEM_COLORS.length];
+        return `<li><i style="background:${color}"></i><span class="seg"><b>${gateLabel(t.entry)} → ${gateLabel(t.exit)}</b><small>${esc(t.system)}${t.discount ? `・${discLabel[t.discount] || ''}割引` : ''}</small></span><span class="fare">${yen(t.etc)}</span></li>`;
+      }).join('');
       body = `
         ${altTabs()}
         <div class="route-summary">
-          <div><span class="muted">${S.analysis?.smartApplied ? 'ETC2.0' : 'ETC'}</span><b>${yen(etc)}</b></div>
-          <div><span class="muted">距離</span><b>${r.km} km</b></div>
-          <div><span class="muted">所要</span><b>${fmtMin(r.min)}</b></div>
+          <div class="price"><b>${yen(etc)}</b><span>${S.analysis?.smartApplied ? 'ETC2.0・賢い料金' : 'ETC'}</span></div>
+          <div class="meta">${r.km} km · ${fmtMin(r.min)}${realVias().length ? '（停車を含む）' : ''}</div>
+          ${discountHtml(r)}
         </div>
         ${r.cash != null && r.cash !== r.etc && !S.analysis ? `<div class="muted route-cash">現金 ${yen(r.cash)}</div>` : ''}
         ${analysisHtml()}
-        ${r.hasToll ? `<details class="route-toll-detail"><summary>料金の内訳</summary><table class="route-tolls">${tolls}</table></details>` : '<p class="route-hint">この経路は有料道路を使いません（HEREの経路選択による）。</p>'}`;
+        ${r.hasToll ? `<div class="route-breakdown"><div class="route-breakdown-head">料金の内訳<small>色は地図の線と対応</small></div><ol>${tolls}</ol></div>` : '<p class="route-hint">この経路は有料道路を使いません（HEREの経路選択による）。</p>'}`;
     }
     const head = `
       <div class="route-head"><h3>経路・料金</h3>
-        ${idle ? '' : '<button type="button" class="route-swap" data-route-swap aria-label="出発と到着を入れ替え" title="入れ替え">⇅</button>'}
-        <button type="button" class="route-x" data-route-collapse aria-expanded="${!S.collapsed}" aria-label="${S.collapsed ? '開く' : '折りたたむ'}">${S.collapsed ? '▸' : '▾'}</button>
-        ${idle ? '' : '<button type="button" class="route-x" data-route-close aria-label="経路をクリア" title="クリア">×</button>'}</div>`;
+        ${idle ? '' : `<button type="button" class="route-icon" data-route-swap aria-label="出発と到着を入れ替え" title="入れ替え">${ICON.swap}</button>`}
+        <button type="button" class="route-icon" data-route-collapse aria-expanded="${!S.collapsed}" aria-label="${S.collapsed ? '開く' : '折りたたむ'}" title="${S.collapsed ? '開く' : '折りたたむ'}">${S.collapsed ? ICON.expand : ICON.collapse}</button>
+        ${idle ? '' : `<button type="button" class="route-icon" data-route-close aria-label="経路をクリア" title="クリア">${ICON.close}</button>`}</div>`;
     if (S.collapsed) {
       const epName = (ep) => (ep ? esc(nfkc(ep.name)) : '未選択');
       const etc = S.analysis?.smartApplied ? S.analysis.effective : r?.etc;
@@ -641,14 +710,14 @@
       return;
     }
     if (idle) {
-      card.innerHTML = `${head}${epRow('o')}${epRow('d')}${body}`;
+      card.innerHTML = `${head}<div class="route-stops">${epRow('o')}${epRow('d')}</div>${body}`;
     } else {
       card.innerHTML = `${head}
       ${waypointRows()}
-      <label class="route-time">出発日時 <input type="datetime-local" step="3600" value="${esc(S.t || defaultTime())}" data-route-time></label>
+      <label class="route-time"><span>出発</span><input type="datetime-local" step="3600" value="${esc(S.t || defaultTime())}" data-route-time></label>
       ${body}
       ${links()}
-      <div class="muted route-note">経路・料金：© HERE（所要時間が最短の経路での目安。普通車・ETC。公式の料金と異なる場合があります）。経由地で高速道路を降りると料金が分かれます。「賢い料金」は ETC2.0 車で、対象の道の駅の出入口のアンテナ通過が条件です｜<a href="about.html#route" target="_blank" rel="noopener">詳しく</a></div>`;
+      <details class="route-note"><summary>経路・料金 © HERE · 料金について</summary>所要時間が最短の経路での目安です（普通車・ETC）。公式の料金と異なる場合があります。経由地で高速道路を降りると料金が分かれます。「賢い料金」は ETC2.0 車で、対象の道の駅の出入口のアンテナ通過が条件です。<a href="about.html#route" target="_blank" rel="noopener">詳しく</a></details>`;
     }
     if (focused) {
       const el = card.querySelector(`[data-route-q="${focused}"]`);
@@ -668,7 +737,14 @@
     const el = sugEl(role);
     if (!el) return;
     const info = (k) => window.MapSearch?.kindInfo?.(k) || { icon: '📍', label: '' };
-    let html = rows.map((r, i) => `<li role="option" data-i="${i}" class="${i === st.active ? 'on' : ''}"><span class="k" aria-hidden="true">${info(r.kind).icon}</span><span class="t"><b>${esc(r.label)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</span></li>`).join('');
+    const subOf = (r) => {
+      if (r.sub || (r.kind !== 'tesla' && r.kind !== 'flash')) return r.sub;
+      const st = stationPair(r.coords);
+      if (st) return `道の駅 ${st.station}内`;
+      const near = window.MapSearch?.nearest?.(r.coords, ['michinoeki', 'sa', 'mall'], 0.35);
+      return near ? `${near.kind === 'michinoeki' && !/^道の駅/.test(near.label) ? '道の駅 ' : ''}${near.label}内` : '';
+    };
+    let html = rows.map((r, i) => `<li role="option" data-i="${i}" class="${i === st.active ? 'on' : ''}"><span class="k" aria-hidden="true">${CAT[r.kind] ? catIcon(r.kind) : info(r.kind).icon}</span><span class="t"><b>${esc(r.label)}</b>${subOf(r) ? `<small>${esc(subOf(r))}</small>` : ''}</span><em class="kl">${esc(info(r.kind).label || '')}</em></li>`).join('');
     if (loading) html += '<li class="st">住所・地名・施設を検索中…</li>';
     else if (empty) html += '<li class="st">見つかりませんでした</li>';
     else if (!rows.some((r) => r.kind === 'gsi' || r.kind === 'osm')) html += '<li class="st more" data-more>↵ 住所・地名・施設（駅など）をさらに検索</li>';
@@ -702,8 +778,9 @@
   }
   function toEndpoint(r) {
     const stop = r.kind === 'tesla' || r.kind === 'flash' ? 30 : r.kind === 'michinoeki' ? 5 : 0;
-    if (r.kind === 'ic' && isIc(r.code, r.label)) return { kind: 'ic', name: r.label, ll: r.coords, stop };
-    return { kind: 'place', name: cleanName(r.label), ll: r.coords, stop };
+    const cat = CAT[r.kind] && r.kind !== 'here' ? r.kind : '';
+    if (r.kind === 'ic' && isIc(r.code, r.label)) return { kind: 'ic', name: r.label, ll: r.coords, stop, cat: 'ic' };
+    return { kind: 'place', name: cleanName(r.label), ll: r.coords, stop, cat: cat === 'ic' ? '' : cat };
   }
   function pickResult(role, r) {
     closeSug(role);
@@ -786,7 +863,7 @@
       const pair = (S.smartPairs || []).find((pr) => pr.station === addStation.dataset.routeAddStation);
       // insert the 道の駅 just before the first waypoint of that off-expressway stretch
       const slot = S.vias.indexOf(realVias()[Number(addStation.dataset.at)]);
-      if (pair) addVia({ kind: 'place', name: `道の駅 ${pair.station}`, ll: pair.station_coords, stop: 5 }, slot < 0 ? S.vias.length : slot);
+      if (pair) addVia({ kind: 'place', name: `道の駅 ${pair.station}`, ll: pair.station_coords, stop: 5, cat: 'michinoeki' }, slot < 0 ? S.vias.length : slot);
     } else if (e.target.closest('[data-route-close]')) {
       clearAll();
     } else if (e.target.closest('[data-route-swap]')) {
@@ -809,9 +886,9 @@
     const url = location.href;
     try {
       await navigator.clipboard.writeText(url);
-      button.textContent = '✓ リンクをコピーしました';
+      button.textContent = '✓ コピーしました';
       button.classList.add('copied');
-      setTimeout(() => { button.textContent = '🔗 この経路のリンクをコピー'; button.classList.remove('copied'); }, 2000);
+      setTimeout(() => { button.textContent = 'リンクをコピー'; button.classList.remove('copied'); }, 2000);
     } catch {
       window.prompt('このURLをコピーしてください', url);
     }
@@ -868,7 +945,7 @@
     if (S.o && !S.o.here) p.set('ro', encodeEp(S.o));
     if (S.d && !S.d.here) p.set('rd', encodeEp(S.d));
     const vias = realVias();
-    if (vias.length) p.set('rv', vias.map((v) => `${encodeEp(v)}~${v.stop}`).join('|'));
+    if (vias.length) p.set('rv', vias.map((v) => encodeEp(v, v.stop)).join('|'));
     if ((S.o || S.d) && S.t) p.set('rt', S.t);
   }
   async function restore() {

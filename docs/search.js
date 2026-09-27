@@ -95,14 +95,26 @@
       add(kind, String(p.name || '').normalize('NFKC'), p.type, f.geometry.coordinates, { code: p.code });
     }
   }
+  let poiPromise = null;
   function loadPoi() {
-    if (poiLoaded) return;
+    if (poiLoaded) return poiPromise;
     poiLoaded = true;
-    fetch('data/poi.json').then((r) => r.json()).then((d) => {
+    poiPromise = fetch('data/poi.json').then((r) => r.json()).then((d) => {
       for (const [lon, lat, name] of d.michinoeki || []) add('michinoeki', name, '', [lon, lat]);
       for (const [lon, lat, name] of d.mall || []) add('mall', name, '', [lon, lat]);
       if (input && document.activeElement === input && input.value.trim() && !(inflight && !inflight.signal.aborted)) suggest();
     }).catch(() => { poiLoaded = false; });
+    return poiPromise;
+  }
+  /** Nearest indexed place of the given kinds within maxKm of [lng, lat] (e.g. the 道の駅 a charger is in). */
+  function nearest(ll, kinds, maxKm) {
+    let best = null, bestD = maxKm;
+    for (const e of index) {
+      if (!kinds.includes(e.kind)) continue;
+      const d = km(ll, e.coords);
+      if (d <= bestD) { best = e; bestD = d; }
+    }
+    return best;
   }
   function searchLocal(q) {
     const tk = tokens(q);
@@ -449,6 +461,6 @@
   window.MapSearch = {
     init, update, search: (q) => { input.value = q; return submit(); },
     // shared with the route card (same index, ranking and remote sources)
-    local: (q) => searchLocal(q), remote, loadPoi, kindInfo: (k) => KIND[k],
+    local: (q) => searchLocal(q), remote, loadPoi, nearest, kindInfo: (k) => KIND[k],
   };
 })();

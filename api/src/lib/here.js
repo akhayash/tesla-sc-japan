@@ -60,13 +60,23 @@ export function simplifyIndices(line, tol = 0.00012) {
   return out;
 }
 
+/** Discount implied by a fare's applicableTimes (HERE time-domain syntax). */
+export function discountOf(applicableTimes) {
+  const t = String(applicableTimes || '');
+  if (/\(h0\)\{h4\}/.test(t)) return 'night'; // 深夜割引 (0-4時)
+  if (/\(t1\)\{d1\}|\(t7\)\{d1\}/.test(t)) return 'holiday'; // 休日割引 (土日祝)
+  return null;
+}
+
 function fareOf(toll) {
   const fares = toll.fares || [];
-  const etc = fares.filter((f) => (f.paymentMethods || []).includes('transponder')).map((f) => f.price.value);
+  const tr = fares.filter((f) => (f.paymentMethods || []).includes('transponder'));
   const cash = fares.filter((f) => !(f.paymentMethods || []).includes('transponder')).map((f) => f.price.value);
+  const etcFare = tr.length ? tr.reduce((a, b) => (b.price.value > a.price.value ? b : a)) : null;
   return {
-    etc: etc.length ? Math.max(...etc) : cash.length ? Math.min(...cash) : 0,
+    etc: etcFare ? etcFare.price.value : cash.length ? Math.min(...cash) : 0,
     cash: cash.length ? Math.max(...cash) : null,
+    discount: etcFare ? discountOf(etcFare.applicableTimes) : null,
   };
 }
 
@@ -100,7 +110,9 @@ function summarizeRoute(route) {
     spans.forEach((sp, k) => {
       if (!sp.tollSystems?.length) return;
       const end = k + 1 < spans.length ? spans[k + 1].offset : pts.length - 1;
-      tollSpans.push([offset(sp.offset), offset(end)]);
+      // [start, end, toll system name] so the map can colour each operator's stretch
+      const sys = s.tollSystems?.[sp.tollSystems[0]]?.name || '';
+      tollSpans.push([offset(sp.offset), offset(end), sys]);
     });
     let sEtc = 0;
     let sCash = 0;
@@ -110,7 +122,7 @@ function summarizeRoute(route) {
       if (f.cash === null) cashKnown = false;
       else sCash += f.cash;
       const locs = (t.tollCollectionLocations || []).map((l) => ({ name: l.name || '', lng: round5(l.location.lng), lat: round5(l.location.lat) }));
-      tolls.push({ section: si, system: t.tollSystem || '', etc: f.etc, cash: f.cash, entry: locs[0] || null, exit: locs.length > 1 ? locs[locs.length - 1] : null });
+      tolls.push({ section: si, system: t.tollSystem || '', etc: f.etc, cash: f.cash, discount: f.discount, entry: locs[0] || null, exit: locs.length > 1 ? locs[locs.length - 1] : null });
     }
     etc += sEtc;
     cash += sCash;
@@ -134,7 +146,7 @@ function summarizeRoute(route) {
     cash: cashKnown ? Math.round(cash) : null,
     hasToll: tolls.length > 0,
     line: idx.map((i) => line[i]),
-    tollSpans: tollSpans.map(([a, b]) => [remap.get(a), remap.get(b)]),
+    tollSpans: tollSpans.map(([a, b, sys]) => [remap.get(a), remap.get(b), sys]),
     tolls,
     sections: sections.map((s) => ({ km: Math.round(s.km * 10) / 10, min: Math.round(s.min), etc: Math.round(s.etc), wait: Math.round(s.wait) })),
   };

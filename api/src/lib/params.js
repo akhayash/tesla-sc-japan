@@ -36,7 +36,8 @@ export function parseEndpoint(str, label) {
 }
 
 export function parseVias(list) {
-  const vias = (list || []).filter(Boolean);
+  // several stops travel in one parameter separated by '|' (the Functions host merges repeated query keys)
+  const vias = (list || []).flatMap((s) => String(s).split('|')).filter(Boolean);
   if (vias.length > MAX_VIAS) throw new BadRequest('too many stops');
   return vias.map((s, i) => {
     const m = /^(.+),(\d{1,3})$/.exec(s);

@@ -33,6 +33,7 @@ CASES = {
     "route_point": "#mode=B&layer=none&at=137.9,34.85,10",
     "route_here": "#mode=B&layer=none&at=138.2,34.9,10",
     "route_search": "#mode=B&layer=none",
+    "route_visit": "#mode=B&layer=none&tesla=1&flash=1&ro=place~135.17947,35.06208~A&rd=place~135.17439,35.28213~B",
 }
 
 # Synthetic relay responses (the real relay calls HERE; smoke tests never do).
@@ -45,6 +46,13 @@ FAKE_ROUTE = {
     "sections": [{"km": 70.0, "min": 50, "etc": 2010, "wait": 0}],
     "used": {"o": [34.74, 137.78], "d": [34.95, 138.39]}, "departure": "2026-09-29T10:00:00+09:00", "attempts": 1, "attribution": "HERE",
 }
+# Synthetic route through 春日JCT・IC (a 賢い料金 IC) for the 道の駅-visit scenario.
+KASUGA = {"name": "k", "lng": 135.11638, "lat": 35.16452}
+TAMBA_BASE = dict(FAKE_ROUTE, km=32.6, min=26, etc=700,
+                  line=[[135.1795, 35.0621], [135.17, 35.10], [135.12, 35.16], [135.15, 35.22], [135.1744, 35.2821]],
+                  tollSpans=[[1, 4]],
+                  tolls=[{"section": 0, "system": "NEXCO", "etc": 700, "cash": None, "entry": {"name": "a", "lng": 135.1789, "lat": 35.0652}, "exit": {"name": "b", "lng": 135.1769, "lat": 35.2845}}],
+                  used={"o": [35.06208, 135.17947], "d": [35.28213, 135.17439]})
 route_requests: list[str] = []
 route_status = {"code": 200}
 
@@ -55,6 +63,22 @@ def fake_relay(route):
     if route_status["code"] != 200:
         route.fulfill(status=route_status["code"], content_type="application/json", body=_json.dumps({"error": "rate_limited"}),
                       headers={"Access-Control-Allow-Origin": "*"})
+        return
+    url = route.request.url.replace("%2C", ",").replace("%7C", "|")
+    if "o=35.06" in url:
+        if "|" in url:
+            body = dict(TAMBA_BASE, km=37.8, min=26 + 11 + 35, etc=820,
+                        sections=[{"km": 12, "min": 10, "etc": 380, "wait": 30}, {"km": 2, "min": 3, "etc": 0, "wait": 5}, {"km": 23.8, "min": 24, "etc": 440, "wait": 0}],
+                        tolls=[{"section": 0, "system": "NEXCO", "etc": 380, "cash": None, "entry": None, "exit": KASUGA},
+                               {"section": 2, "system": "NEXCO", "etc": 440, "cash": None, "entry": KASUGA, "exit": None}])
+        elif "v=" in url:
+            body = dict(TAMBA_BASE, km=37.2, min=26 + 9 + 30, etc=820,
+                        sections=[{"km": 12, "min": 10, "etc": 380, "wait": 30}, {"km": 25.2, "min": 25, "etc": 440, "wait": 0}],
+                        tolls=[{"section": 0, "system": "NEXCO", "etc": 380, "cash": None, "entry": None, "exit": KASUGA},
+                               {"section": 1, "system": "NEXCO", "etc": 440, "cash": None, "entry": KASUGA, "exit": None}])
+        else:
+            body = TAMBA_BASE
+        route.fulfill(status=200, content_type="application/json", body=_json.dumps(body), headers={"Access-Control-Allow-Origin": "*"})
         return
     if "v=" in route.request.url:
         detour = dict(FAKE_ROUTE, etc=2170, km=73.1, min=96,
@@ -269,6 +293,19 @@ with sync_playwright() as p:
                 if last.count("~") != 2:
                     errors.append(f"searched ICs were not sent as toll-gate endpoints: {last}")
             page.screenshot(path=str(OUT / "route_search.png"))
+        if name == "route_visit":
+            names = page.locator(".route-cand .name").all_inner_texts()
+            if "丹波市役所春日庁舎" not in names:
+                errors.append(f"visit scenario candidate missing: {names}")
+            else:
+                i = names.index("丹波市役所春日庁舎")
+                page.locator(".route-cands li").nth(i).locator("[data-route-detour]").click()
+                page.wait_for_selector(".route-visit", timeout=10000)
+                txt = page.inner_text(".route-visit")
+                if "丹波おばあちゃんの里" not in txt or "±0円" not in txt or "|" not in route_requests[-1].replace("%7C", "|"):
+                    errors.append(f"道の駅 visit (賢い料金) was not evaluated: {txt!r}")
+                page.click(".route-visit")
+                page.screenshot(path=str(OUT / "route_visit.png"))
         if name == "b_none":
             if page.locator('[data-key="layer"] button.active').count():
                 errors.append("no-mesh state was not restored from URL")

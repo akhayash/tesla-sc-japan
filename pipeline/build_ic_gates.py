@@ -39,7 +39,7 @@ APPROACH_KM = 0.35
 # GSI IC name -> OSM toll booth name where they differ
 ALIASES = {"練馬": "大泉"}
 
-SUFFIX = re.compile(r"(スマートインターチェンジ|スマートIC|インターチェンジ|本線料金所|料金所|インター|IC|TB|出口|入口)")
+SUFFIX = re.compile(r"(JCT[・/]?|ジャンクション|スマートインターチェンジ|スマートIC|インターチェンジ|本線料金所|料金所|インター|IC|TB|出口|入口)")
 
 
 def norm(name: str | None) -> str:
@@ -90,7 +90,7 @@ def main() -> None:
     rows, named, unnamed, missing = [], 0, 0, []
     for f in facilities:
         p = f["properties"]
-        if p.get("code") not in IC_CODES:
+        if p.get("code") not in IC_CODES and not (p.get("code") == 2942 and "IC" in unicodedata.normalize("NFKC", p.get("name") or "")):
             continue
         lon, lat = f["geometry"]["coordinates"]
         key = norm(p["name"])

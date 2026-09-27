@@ -39,6 +39,8 @@ test('parses charging stops', () => {
   assert.throws(() => parseVias(['34.85,137.95']), BadRequest);
   assert.throws(() => parseVias(['34.85,137.95,999']), BadRequest);
   assert.throws(() => parseVias(['35,139,1', '35,139,1', '35,139,1', '35,139,1']), BadRequest);
+  assert.deepEqual(parseVias(['34.85,137.95,30|34.9,138,5']).map((v) => v.minutes), [30, 5]);
+  assert.throws(() => parseVias(['35,139,1|35,139,1|35,139,1|35,139,1']), BadRequest);
 });
 
 test('parses departure time in JST', () => {

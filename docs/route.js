@@ -6,6 +6,8 @@
 
   const API = String(window.ROUTE_API || '').replace(/\/$/, '');
   const IC_CODES = new Set([2941, 2945]);
+  // IC, smart IC, or a combined junction such as 「春日ＪＣＴ・ＩＣ」
+  const isIc = (code, name) => IC_CODES.has(Number(code)) || (Number(code) === 2942 && /IC/.test(String(name || '').normalize('NFKC')));
   const MAX_NAME = 40;
 
   const S = { o: null, d: null, t: '', result: null, loading: false, error: '', seq: 0, stop: 30, detours: new Map(), detourSel: null, q: { o: '', d: '' } };
@@ -21,7 +23,7 @@
     const kx = 111.32 * Math.cos(((a[1] + b[1]) / 2) * Math.PI / 180);
     return Math.hypot((a[0] - b[0]) * kx, (a[1] - b[1]) * 110.57);
   };
-  const baseName = (name) => String(name || '').normalize('NFKC').replace(/(スマートIC|SIC|IC)$/i, '').trim();
+  const baseName = (name) => String(name || '').normalize('NFKC').replace(/JCT[・/]?/i, '').replace(/(スマートIC|SIC|IC)$/i, '').trim();
 
   // ---------- endpoints ----------
   function loadGates() {
@@ -72,7 +74,7 @@
     </div>`;
   }
   function facilityButtonsHtml(props, ll) {
-    return IC_CODES.has(Number(props.code)) ? buttonsHtml({ kind: 'ic', name: props.name, ll }) : '';
+    return isIc(props.code, props.name) ? buttonsHtml({ kind: 'ic', name: props.name, ll }) : '';
   }
 
   async function setEndpoint(role, ep) {
@@ -241,12 +243,27 @@
   function icNameAt(p) {
     return p ? nearestIc(p) : null;
   }
-  async function smartTollMatch(item, exitIc, entryIc, stop) {
-    if (!exitIc || exitIc !== entryIc) return null;
-    const pairs = await loadSmartToll();
-    const ic = baseName(exitIc);
-    const limit = (pr) => pr.minutes || (pr.kind === 'ev' ? 60 : 120);
-    return pairs.find((pr) => baseName(pr.ic) === ic && km(pr.station_coords, item.ll) <= 2 && stop <= limit(pr)) || null;
+  const AT_STATION_KM = 0.3;
+  const STATION_STOP_MIN = 5;
+  const smartLimit = (pr) => pr.minutes || 120;
+  /**
+   * 賢い料金 (ETC2.0): leave at the designated IC, pass the antenna at the designated 道の駅 and
+   * re-enter at the same IC in the same direction within the time limit. The charger may be at the
+   * 道の駅 itself or elsewhere (then the 道の駅 must be visited too). EV路外充電 pairs are excluded:
+   * they require charging at the 道の駅's own charger, not SC/FLASH.
+   */
+  async function smartTollMatch(item, exitIc) {
+    if (!exitIc) return null;
+    const pairs = (await loadSmartToll()).filter((pr) => pr.kind !== 'ev' && baseName(pr.ic) === baseName(exitIc));
+    const at = pairs.find((pr) => km(pr.station_coords, item.ll) <= AT_STATION_KM);
+    if (at) return { pair: at, atStation: true };
+    return pairs[0] ? { pair: pairs[0], atStation: false } : null;
+  }
+  async function fetchRoute(q) {
+    const res = await fetch(`${API}/route?${q}`, { cache: 'no-store' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(body.error || String(res.status)), { status: res.status, code: body.error });
+    return body;
   }
   async function computeDetour(item) {
     const base = S.result;
@@ -263,27 +280,49 @@
       v: `${f5(item.ll[1])},${f5(item.ll[0])},${stop}`,
     });
     if (S.t) q.set('t', S.t);
+    const waitOf = (b) => b.sections.reduce((a, s) => a + (s.wait || 0), 0);
     let entry;
     try {
-      const res = await fetch(`${API}/route?${q}`, { cache: 'no-store' });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw Object.assign(new Error(body.error || String(res.status)), { status: res.status, code: body.error });
+      const body = await fetchRoute(q);
       const before = body.tolls.filter((t) => t.section === 0);
       const after = body.tolls.filter((t) => t.section === 1);
       const exitIc = icNameAt(before.at(-1)?.exit);
       const entryIc = icNameAt(after[0]?.entry);
-      const wait = body.sections.reduce((a, s) => a + (s.wait || 0), 0);
+      const dMin = body.min - waitOf(body) - base.min;
+      const match = await smartTollMatch(item, exitIc);
       entry = {
         result: body,
-        stopLl: item.ll,
+        stops: [item.ll],
         dEtc: body.etc - base.etc,
         dKm: Math.round((body.km - base.km) * 10) / 10,
-        dMin: body.min - wait - base.min,
+        dMin,
         exitIc, entryIc,
-        smart: await smartTollMatch(item, exitIc, entryIc, stop),
+        smart: match?.atStation && entryIc === exitIc && stop + Math.max(0, dMin) <= smartLimit(match.pair) ? match.pair : null,
       };
+      if (match && !match.atStation) {
+        // charge, then pass the 道の駅 antenna on the way back to the same IC
+        const st = match.pair.station_coords;
+        const q2 = new URLSearchParams(q);
+        q2.set('v', `${q.get('v')}|${f5(st[1])},${f5(st[0])},${STATION_STOP_MIN}`);
+        const b2 = await fetchRoute(q2);
+        const exit2 = icNameAt(b2.tolls.filter((t) => t.section === 0).at(-1)?.exit);
+        const entry2 = icNameAt(b2.tolls.filter((t) => t.section === 2)[0]?.entry);
+        const wait2 = waitOf(b2);
+        const dMin2 = b2.min - wait2 - base.min;
+        const offMin = Math.max(0, dMin2) + wait2;
+        entry.visit = {
+          pair: match.pair,
+          result: b2,
+          stops: [item.ll, st],
+          dKm: Math.round((b2.km - base.km) * 10) / 10,
+          dMin: dMin2,
+          offMin,
+          ok: !!exit2 && exit2 === entry2 && baseName(exit2) === baseName(match.pair.ic) && offMin <= smartLimit(match.pair),
+        };
+      }
     } catch (e) {
-      entry = { error: errorText(e) };
+      if (entry) entry.visitError = errorText(e);
+      else entry = { error: errorText(e) };
     }
     // drop results for an older base route or charging duration
     if (seq !== S.seq || detours !== S.detours || stop !== S.stop) return;
@@ -341,11 +380,12 @@
       for (const t of r.tolls || []) {
         for (const p of [t.entry, t.exit]) if (p) features.push({ type: 'Feature', properties: { role: 'gate' }, geometry: { type: 'Point', coordinates: [p.lng, p.lat] } });
       }
-      const det = S.detourSel && S.detours.get(S.detourSel);
-      if (det?.result?.line?.length) {
-        features.push({ type: 'Feature', properties: { role: 'detour' }, geometry: { type: 'LineString', coordinates: det.result.line } });
-        const stop = det.stopLl;
-        if (stop) features.push({ type: 'Feature', properties: { role: 'stop' }, geometry: { type: 'Point', coordinates: stop } });
+      const selId = String(S.detourSel || '');
+      const det = selId && S.detours.get(selId.replace(/:visit$/, ''));
+      const shown = selId.endsWith(':visit') ? det?.visit : det;
+      if (shown?.result?.line?.length) {
+        features.push({ type: 'Feature', properties: { role: 'detour' }, geometry: { type: 'LineString', coordinates: shown.result.line } });
+        for (const stop of shown.stops || []) features.push({ type: 'Feature', properties: { role: 'stop' }, geometry: { type: 'Point', coordinates: stop } });
       }
     }
     map.getSource('route').setData({ type: 'FeatureCollection', features });
@@ -389,7 +429,7 @@
     const data = ctx.getData().roadFacilities;
     let best = null, bestD = 2.5;
     for (const f of data?.features || []) {
-      if (!IC_CODES.has(f.properties.code)) continue;
+      if (!isIc(f.properties.code, f.properties.name)) continue;
       const d = km(f.geometry.coordinates, [p.lng, p.lat]);
       if (d < bestD) { best = f.properties.name; bestD = d; }
     }
@@ -515,12 +555,21 @@
     else if (det?.result) {
       const exitTxt = det.exitIc && det.entryIc ? `${esc(det.exitIc.normalize('NFKC'))}で降りて${det.entryIc === det.exitIc ? '同じICから戻る' : `${esc(det.entryIc.normalize('NFKC'))}から戻る`}` : '';
       const smart = det.smart
-        ? `<div class="route-smart">ETC2.0なら追加料金なし（${det.smart.kind === 'ev' ? 'EV路外充電・60分以内' : '賢い料金・2時間以内'}）</div>`
+        ? `<div class="route-smart">ETC2.0なら追加料金なし（賢い料金：この充電器は道の駅「${esc(det.smart.station)}」にあり、2時間以内に同じICから戻れば直行と同じ料金）</div>`
         : '';
+      const v = det.visit;
+      const visit = v
+        ? v.ok
+          ? `<button type="button" class="route-smart route-visit${S.detourSel === `${item.id}:visit` ? ' active' : ''}" data-route-show="${esc(item.id)}:visit">
+              <span>道の駅「${esc(v.pair.station)}」にも寄れば、ETC2.0で追加料金なし（賢い料金）</span>
+              <small>±0円 · ${v.dKm >= 0 ? '+' : '−'}${Math.abs(v.dKm)}km · ${v.dMin >= 0 ? '+' : '−'}${Math.abs(v.dMin)}分（停車時間を除く）· 充電と道の駅${STATION_STOP_MIN}分を含め、降りてから約${Math.round(v.offMin)}分で戻る</small>
+            </button>`
+          : `<div class="muted route-exit">道の駅「${esc(v.pair.station)}」に寄っても、賢い料金の条件（${esc(String(v.pair.ic).normalize('NFKC'))}で降りて同じICから${smartLimit(v.pair) / 60}時間以内に戻る）を満たさない見込みです</div>`
+        : det.visitError ? `<div class="muted route-exit">賢い料金（道の駅経由）の計算に失敗しました</div>` : '';
       res = `<button type="button" class="route-det-result${S.detourSel === item.id ? ' active' : ''}" data-route-show="${esc(item.id)}">
           <b class="${det.dEtc > 0 ? 'up' : ''}">${signedYen(det.dEtc)}</b>
           <span>${det.dKm >= 0 ? '+' : '−'}${Math.abs(det.dKm)}km · ${det.dMin >= 0 ? '+' : '−'}${Math.abs(det.dMin)}分</span>
-        </button>${exitTxt ? `<div class="muted route-exit">${exitTxt}</div>` : ''}${smart}`;
+        </button>${exitTxt ? `<div class="muted route-exit">${exitTxt}</div>` : ''}${smart}${visit}`;
     }
     return `<li><div class="route-cand">${dot}<span class="name" title="${esc(item.name)}">${esc(item.name)}</span><span class="muted">${item.d.toFixed(1)}km</span></div>${res}</li>`;
   }
@@ -535,7 +584,7 @@
       <label class="route-stop">充電時間 <select data-route-stop>${stopOpts}</select></label>
       ${off.length ? `<ul class="route-cands">${off.map(detourRow).join('')}</ul>` : '<p class="route-hint">経路の有料区間から5km以内に、高速道路を降りて使う充電器はありません。</p>'}
       ${onTxt}
-      <div class="muted route-note">一度降りると料金が2回分に分かれ、ターミナルチャージや長距離逓減の分だけ高くなることがあります。直行した場合との差額です（距離・時間は充電時間を除く）。</div>
+      <div class="muted route-note">一度降りると料金が2回分に分かれ、ターミナルチャージや長距離逓減の分だけ高くなることがあります。直行した場合との差額です（距離・時間は充電時間を除く）。「賢い料金」はETC2.0車で、対象の道の駅の出入口にあるアンテナの通過が条件です。</div>
     </details>`;
   }
 
@@ -583,7 +632,7 @@
     renderSug(role, rows, { empty: !rows.length });
   }
   function toEndpoint(r) {
-    if (r.kind === 'ic' && IC_CODES.has(Number(r.code))) return { kind: 'ic', name: r.label, ll: r.coords };
+    if (r.kind === 'ic' && isIc(r.code, r.label)) return { kind: 'ic', name: r.label, ll: r.coords };
     return { kind: 'place', name: String(r.label).slice(0, MAX_NAME), ll: r.coords };
   }
   function pickResult(role, r) {

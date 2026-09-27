@@ -234,7 +234,7 @@ with sync_playwright() as p:
             page.wait_for_timeout(300)
             if "コピーしました" not in page.inner_text("[data-route-share]"):
                 errors.append("route share button did not copy the link")
-            if not page.locator("[data-route-add-via]").count():
+            if not page.locator("[data-route-insert]").count():
                 errors.append("add-waypoint button missing")
             page.click("[data-route-close]")
             if not page.is_visible(".route-card.idle") or "ro=" in page.url:
@@ -316,11 +316,14 @@ with sync_playwright() as p:
             page.wait_for_selector(".route-summary", timeout=10000)
             if "rv=" in page.url or page.locator(".route-compare").count():
                 errors.append("removing the waypoint did not return to the direct route")
-            page.click(".route-add-via")
+            page.click('[data-route-insert="0"]')
             page.fill('[data-route-q="v0"]', "Yaizu")
             page.wait_for_selector('[data-route-sug="v0"] li[data-i]', timeout=5000)
             page.locator('[data-route-sug="v0"] li[data-i]').first.click()
             page.wait_for_selector(".route-compare", timeout=10000)
+            page.click('[data-route-insert="0"]')
+            if not page.locator('.route-ep.via:first-of-type [data-route-q="v0"], [data-route-q="v0"]').count() or page.locator(".route-ep.via").count() != 2:
+                errors.append("insert button did not add an empty stop at that position")
             page.screenshot(path=str(OUT / "route_via.png"))
         if name == "route_visit":
             if not page.locator("[data-route-add-station]").count() or "丹波おばあちゃんの里" not in page.inner_text(".route-hint-smart"):

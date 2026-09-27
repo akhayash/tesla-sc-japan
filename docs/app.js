@@ -171,6 +171,12 @@
       map, popup, writeHash,
       getData: () => ({ roadFacilities: roadFacilityData, sc }),
       getChargerFilter: () => ({ tesla: state.tesla, flash: state.flash, planned: state.status === 'a' }),
+      onRouteShown: (shown) => { routeShown = shown; syncExpressway(); },
+      // same icons as on the map, for the route panel
+      iconUrl: (cat) => {
+        const draw = { tesla: () => drawChargerIcon('tesla', 1, false), flash: () => drawChargerIcon('flash', 1, false), michinoeki: () => drawPoiIcon('michinoeki', '#9a5b13'), mall: () => drawPoiIcon('mall', '#a21caf') }[cat];
+        return draw ? draw().toDataURL() : null;
+      },
     });
     $('#loading').hidden = true;
     restoreSelection();
@@ -617,6 +623,14 @@
     }
   }
 
+  // the green expressway overlay is hidden while a route is shown (it competes with the route line)
+  let routeShown = false;
+  function syncExpressway() {
+    for (const id of ['expressway-casing', 'expressway-line']) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', state.expressway && !routeShown ? 'visible' : 'none');
+    }
+  }
+
   function flyToCharger(id) {
     const c = chargerById.get(String(id));
     if (!c) return;
@@ -784,9 +798,7 @@
       map.setFilter(id, chargerFilter);
       map.setLayoutProperty(id, 'visibility', state.showSc ? 'visible' : 'none');
     }
-    for (const id of ['expressway-casing', 'expressway-line']) {
-      map.setLayoutProperty(id, 'visibility', state.expressway ? 'visible' : 'none');
-    }
+    syncExpressway();
     const enabledCodes = FACILITY_TYPES.filter((f) => state[f.key]).map((f) => f.code);
     map.setFilter('road-service-areas', ['in', ['get', 'code'], ['literal', enabledCodes.filter((c) => c === 2943 || c === 2944)]]);
     map.setFilter('road-junctions', ['in', ['get', 'code'], ['literal', enabledCodes.filter((c) => c === 2941 || c === 2942 || c === 2945)]]);

@@ -108,8 +108,8 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'HERE_API_KEY', value: hereApiKey }
         { name: 'ROUTE_TABLE_ENDPOINT', value: storage.properties.primaryEndpoints.table }
         { name: 'ROUTE_DAILY_CAP', value: string(dailyCap) }
-        { name: 'ROUTE_PER_IP_PER_MINUTE', value: '10' }
-        { name: 'ROUTE_PER_IP_PER_DAY', value: '150' }
+        { name: 'ROUTE_PER_IP_PER_MINUTE', value: '20' }
+        { name: 'ROUTE_PER_IP_PER_DAY', value: '300' }
       ]
     }
     functionAppConfig: {

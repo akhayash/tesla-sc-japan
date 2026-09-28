@@ -4,7 +4,7 @@ import { decodeFlexPolyline } from '../src/lib/flexpolyline.js';
 import { attempts, BadRequest, parseDeparture, parseEndpoint, parseRequest, parseVias } from '../src/lib/params.js';
 import { buildHereUrl, discountOf, simplifyIndices, summarize } from '../src/lib/here.js';
 import { clientIp, IpLimiter, jstDay, MemoryCounter, TableCounter } from '../src/lib/limits.js';
-import { handleRoute } from '../src/lib/handler.js';
+import { handleRoute, shiftDeparture } from '../src/lib/handler.js';
 
 test('decodes the reference flexible polyline', () => {
   // example from https://github.com/heremaps/flexible-polyline
@@ -278,4 +278,23 @@ test('handler maps upstream errors', async () => {
   assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), d)).status, 502);
   const busy = deps({ fetch: async () => ({ ok: false, status: 429, json: async () => ({}) }) });
   assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), busy)).status, 503);
+});
+
+test('waypoints are computed leg by leg and stitched', async () => {
+  const d = deps();
+  const res = await handleRoute(request('o=35,139&d=34.9,137.9&v=34.95,138.5,30|34.92,138.2,0&legs=1&t=2026-09-29T10:00'), d);
+  assert.equal(res.status, 200);
+  assert.equal(res.jsonBody.attempts, 3);
+  assert.equal(d.calls.length, 3);
+  assert.deepEqual(d.calls.map((u) => u.searchParams.get('origin')), ['35,139', '34.95,138.5', '34.92,138.2']);
+  assert.ok(d.calls.every((u) => !u.searchParams.has('via')));
+  assert.deepEqual(res.jsonBody.tolls.map((t) => t.section), [0, 1, 2]);
+  assert.deepEqual(res.jsonBody.sections.map((s) => s.wait), [30, 0, 0]);
+  assert.equal(res.jsonBody.etc, 3600);
+  // later legs depart after the earlier legs plus the stop
+  assert.equal(d.calls[1].searchParams.get('departureTime'), '2026-09-29T11:30:00+09:00');
+});
+
+test('shifts JST departure times', () => {
+  assert.equal(shiftDeparture('2026-09-29T23:30:00+09:00', 45), '2026-09-30T00:15:00+09:00');
 });

@@ -3,8 +3,8 @@ import { handleRoute } from '../lib/handler.js';
 import { IpLimiter, MemoryCounter, TableCounter } from '../lib/limits.js';
 
 const limiter = new IpLimiter({
-  perMinute: Number(process.env.ROUTE_PER_IP_PER_MINUTE || 10),
-  perDay: Number(process.env.ROUTE_PER_IP_PER_DAY || 150),
+  perMinute: Number(process.env.ROUTE_PER_IP_PER_MINUTE || 20),
+  perDay: Number(process.env.ROUTE_PER_IP_PER_DAY || 300),
 });
 
 let counter = null;

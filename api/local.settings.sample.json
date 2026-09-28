@@ -5,8 +5,8 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "ROUTE_TABLE_CONNECTION": "UseDevelopmentStorage=true",
     "ROUTE_DAILY_CAP": "900",
-    "ROUTE_PER_IP_PER_MINUTE": "10",
-    "ROUTE_PER_IP_PER_DAY": "150"
+    "ROUTE_PER_IP_PER_MINUTE": "20",
+    "ROUTE_PER_IP_PER_DAY": "300"
   },
   "Host": {
     "CORS": "http://localhost:8765,http://127.0.0.1:8765"

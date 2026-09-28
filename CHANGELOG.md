@@ -4,6 +4,17 @@
 サイト上の表示：[リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)。バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 充電器データの週次自動更新はバージョンに含めません。
 
+## [1.12.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.11.0...v1.12.0) - 2026-09-28
+
+**経由地の経路を区間ごとに計算**
+
+### 変更
+- 区間ごとの計算で問い合わせが増えるため、1人あたりの計算回数の上限を1分20回・1日300回に変更
+
+### 修正
+- 経由地で一度降りて同じICから戻る経路（例：遠州森町SCで充電）が、隣のICまで行って戻る遠回りになり、料金が高く出ていた問題を修正。区間ごとに計算してつなげるように変更
+- ICのすぐそばにある充電器は、そのICで降りて戻る経路で計算
+
 ## [1.11.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.10.0...v1.11.0) - 2026-09-28
 
 **寄り道経路をタブと地図で比べる**

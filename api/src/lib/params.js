@@ -75,6 +75,8 @@ export function parseRequest(query) {
     departure: parseDeparture(get('t')),
     // alternative routes, requested only for the main route
     alternatives: get('alt') === '1' ? 2 : 0,
+    // compute waypoints leg by leg (see handleLegs)
+    legs: get('legs') === '1',
   };
 }
 

@@ -299,13 +299,28 @@
     });
     return ranges;
   }
+  const NEAR_IC_KM = 1.0;
+  /** IC whose toll gate is right next to a waypoint (e.g. a charger at a smart IC / PA). */
+  function gateNear(ll) {
+    let best = null, bestD = NEAR_IC_KM;
+    for (const g of gates || []) {
+      const d = km([g[3], g[4]], ll);
+      if (d < bestD) { best = { approach: [g[5], g[6]], gate: [g[3], g[4]] }; bestD = d; }
+    }
+    return best;
+  }
   function buildStops(vias, ranges, flip = false) {
     const pinOf = (g) => (flip ? [2 * g.gate[0] - g.approach[0], 2 * g.gate[1] - g.approach[1]] : g.approach);
     const stops = [];
     vias.forEach((v, i) => {
       const r1 = ranges.find((x) => x.a === i && x.gate);
       if (r1) stops.push({ ll: pinOf(r1.gate), min: 0, pin: true });
-      stops.push({ ll: v.ll, min: v.stop, via: i });
+      // a waypoint right next to an IC (charger at a smart IC / PA) is reached through that IC's local side:
+      // HERE may otherwise snap the point to a one-way PA road and detour via the next IC
+      const inRange = ranges.some((x) => i >= x.a && i <= x.b);
+      const near = !inRange ? gateNear(v.ll) : null;
+      const ll = near ? (flip ? [2 * near.gate[0] - near.approach[0], 2 * near.gate[1] - near.approach[1]] : near.approach) : v.ll;
+      stops.push({ ll, min: v.stop, via: i, nearIc: !!near });
       const r2 = ranges.find((x) => x.b === i && x.gate);
       if (r2) stops.push({ ll: pinOf(r2.gate), min: 0, pin: true });
     });
@@ -395,10 +410,12 @@
         S.result = direct;
       } else {
         // 2) with waypoints (from the resolved start/goal points)
-        const base = new URLSearchParams({ o: `${direct.used.o[0]},${direct.used.o[1]}`, d: `${direct.used.d[0]},${direct.used.d[1]}` });
+        // legs=1: each leg start→v1→…→goal is routed on its own (no U-turn avoidance at the stops)
+        const base = new URLSearchParams({ o: `${direct.used.o[0]},${direct.used.o[1]}`, d: `${direct.used.d[0]},${direct.used.d[1]}`, legs: '1' });
         if (S.t) base.set('t', S.t);
         const ranges = smartRanges(vias);
-        const qualifies = (gs) => gs.filter((g) => g.smart).length;
+        // prefer results where 賢い料金 stretches qualify, then where each stop returns to the IC it left from
+        const qualifies = (gs) => gs.filter((g) => g.smart).length * 10 + gs.filter((g) => g.sameIc).length;
         let stops = buildStops(vias, ranges);
         const q = new URLSearchParams(base);
         q.set('v', stops.map(stopParam).join('|'));
@@ -406,7 +423,8 @@
         if (seq !== S.seq) return;
         let groups = analyze(r, stops, vias);
         // the derived IC approach point can sit on the mainline side: try the mirrored point once
-        if (ranges.some((x) => x.gate) && qualifies(groups) < ranges.length) {
+        const pinned = ranges.some((x) => x.gate) || stops.some((s) => s.nearIc);
+        if (pinned && (groups.filter((g) => g.smart).length < ranges.length || groups.some((g) => !g.sameIc))) {
           const stops2 = buildStops(vias, ranges, true);
           const q2 = new URLSearchParams(base);
           q2.set('v', stops2.map(stopParam).join('|'));

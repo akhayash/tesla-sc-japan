@@ -299,11 +299,36 @@ with sync_playwright() as p:
                 last = route_requests[-1].replace("%7E", "~") if len(route_requests) > n0 else ""
                 if last.count("~") != 2:
                     errors.append(f"searched ICs were not sent as toll-gate endpoints: {last}")
+            page.click('[data-route-edit="d"]')
+            page.wait_for_timeout(200)
+            if page.input_value('[data-route-q="d"]') != "静岡IC":
+                errors.append("clicking a set place did not open it for editing")
+            page.fill('[data-route-q="d"]', "浜松IC")
+            page.press('[data-route-q="d"]', "Escape")
+            page.wait_for_timeout(300)
+            if "静岡IC" not in page.inner_text(".route-card"):
+                errors.append("Escape did not keep the previous place")
+            page.click('[data-route-edit="d"]')
+            page.fill('[data-route-q="d"]', "豊川IC")
+            page.press('[data-route-q="d"]', "Enter")
+            page.wait_for_timeout(800)
+            if "豊川IC" not in page.inner_text(".route-card"):
+                errors.append("editing a set place did not replace it")
             page.screenshot(path=str(OUT / "route_search.png"))
         if name == "route_via":
             card = page.inner_text(".route-card")
-            if "Yaizu" not in card or "+160円" not in card or "料金が2回に分かれます" not in card:
+            if "Yaizu" not in card or "+160円" not in card or not page.locator(".route-io .chip").count():
                 errors.append(f"waypoint fare split was not shown: {card[:300]!r}")
+            tabs = page.locator("[data-route-alt]").all_inner_texts()
+            if len(tabs) != 2 or "直行" not in tabs[0] or "寄り道" not in tabs[1]:
+                errors.append(f"waypoint route should offer 直行 / 寄り道 tabs: {tabs}")
+            else:
+                page.click('[data-route-alt="0"]')
+                page.wait_for_timeout(300)
+                if "2,010円" not in page.inner_text(".route-summary") or page.locator(".route-io .chip").count():
+                    errors.append("直行 tab did not show the direct route")
+                page.click('[data-route-alt="1"]')
+                page.wait_for_timeout(300)
             if not any("v=" in u and "Yaizu" not in u for u in route_requests[-2:]):
                 errors.append("waypoint request was not sent")
             if "rv=" not in page.url:
@@ -314,26 +339,26 @@ with sync_playwright() as p:
                 errors.append("changing the stop time did not recompute")
             page.click('[data-route-remove="0"]')
             page.wait_for_selector(".route-summary", timeout=10000)
-            if "rv=" in page.url or page.locator(".route-compare").count():
+            if "rv=" in page.url or page.locator(".route-io").count():
                 errors.append("removing the waypoint did not return to the direct route")
             page.click('[data-route-insert="0"]')
             page.fill('[data-route-q="v0"]', "Yaizu")
             page.wait_for_selector('[data-route-sug="v0"] li[data-i]', timeout=5000)
             page.locator('[data-route-sug="v0"] li[data-i]').first.click()
-            page.wait_for_selector(".route-compare", timeout=10000)
+            page.wait_for_selector(".route-io", timeout=10000)
             page.click('[data-route-insert="0"]')
             if not page.locator('.route-ep.via:first-of-type [data-route-q="v0"], [data-route-q="v0"]').count() or page.locator(".route-ep.via").count() != 2:
                 errors.append("insert button did not add an empty stop at that position")
             page.screenshot(path=str(OUT / "route_via.png"))
         if name == "route_visit":
-            if not page.locator("[data-route-add-station]").count() or "丹波おばあちゃんの里" not in page.inner_text(".route-hint-smart"):
+            if not page.locator("[data-route-add-station]").count() or "丹波おばあちゃんの里" not in page.inner_text("[data-route-add-station]"):
                 errors.append("賢い料金 道の駅 hint was not offered for a charger near 春日IC")
             else:
                 page.click("[data-route-add-station]")
-                page.wait_for_selector(".route-compare .smart", timeout=10000)
+                page.wait_for_selector(".route-io .chip.smart", timeout=10000)
                 txt = page.inner_text(".route-card")
                 last = route_requests[-1].replace("%7C", "|").replace("%2C", ",")
-                if "±0円" not in txt or "降りなかった扱い" not in txt:
+                if "±0円" not in txt or "賢い料金" not in txt:
                     errors.append(f"賢い料金 was not applied after adding the 道の駅: {txt[:400]!r}")
                 if not any(u.replace("%7C", "|").count("|") >= 3 for u in route_requests[-3:]):
                     errors.append("IC pins were not added around the 道の駅 stretch")

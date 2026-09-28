@@ -350,7 +350,7 @@
         const smart = station && sameIc && baseName(station.ic) === baseName(exitIc)
           ? { pair: station, ok: offMin <= smartLimit(station) }
           : null;
-        groups.push({ from: j, to: k, members, exitIc, entryIc, sameIc, offMin, smart, stationPair: station, hintPair });
+        groups.push({ from: j, to: k, members, exitIc, entryIc, sameIc, offMin, smart, stationPair: station, hintPair, exitGate: exitT.exit, entryGate: entryT.entry });
       }
       j = k + 1;
     }
@@ -430,9 +430,12 @@
             effective = direct.etc;
           }
         }
+        r._analysis = { groups, stops, directEtc: direct.etc, effective, smartApplied: drop.size > 0 };
+        // tabs: [直行] [寄り道] — each is one complete route drawn on the map
+        S.routes = [direct, r];
+        S.routeIdx = 1;
         S.result = r;
-        S.routes = [r];
-        S.analysis = { groups, stops, directEtc: direct.etc, effective, smartApplied: drop.size > 0 };
+        S.analysis = r._analysis;
       }
     } catch (e) {
       if (seq !== S.seq) return;
@@ -445,9 +448,10 @@
     if (fit) fitRoute();
   }
   function selectRoute(i) {
-    if (!S.routes[i] || i === S.routeIdx || realVias().length) return;
+    if (!S.routes[i] || i === S.routeIdx) return;
     S.routeIdx = i;
     S.result = S.routes[i];
+    S.analysis = S.result._analysis || null;
     draw();
     renderCard();
   }
@@ -468,7 +472,7 @@
       paint: { 'line-color': '#94a3b8', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 3, 12, 6], 'line-opacity': 0.8 },
     });
     map.addLayer({
-      id: 'route-casing', type: 'line', source: 'route', filter: ['==', ['get', 'role'], 'main'],
+      id: 'route-casing', type: 'line', source: 'route', filter: ['in', ['get', 'role'], ['literal', ['main', 'off']]],
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 5, 12, 10] },
     });
@@ -479,6 +483,12 @@
         'line-color': ['case', ['get', 'toll'], ['coalesce', ['get', 'color'], '#1d4ed8'], '#93c5fd'],
         'line-width': ['interpolate', ['linear'], ['zoom'], 5, 3, 12, 6],
       },
+    });
+    // stretches driven on local roads between leaving and re-entering the expressway
+    map.addLayer({
+      id: 'route-off', type: 'line', source: 'route', filter: ['==', ['get', 'role'], 'off'],
+      layout: { 'line-join': 'round', 'line-cap': 'butt' },
+      paint: { 'line-color': '#ea580c', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 3, 12, 6], 'line-dasharray': [1.4, 1] },
     });
     map.addLayer({
       id: 'route-gates', type: 'circle', source: 'route', filter: ['==', ['get', 'role'], 'gate'],
@@ -492,6 +502,19 @@
       id: 'route-via-label', type: 'symbol', source: 'route', filter: ['==', ['get', 'role'], 'via'],
       layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: { 'text-color': '#ffffff' },
+    });
+    // 出 / 入: where the route leaves and re-enters the expressway
+    map.addLayer({
+      id: 'route-io', type: 'circle', source: 'route', filter: ['==', ['get', 'role'], 'io'],
+      paint: { 'circle-radius': 6, 'circle-color': ['case', ['get', 'smart'], '#16a34a', '#ea580c'], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 },
+    });
+    map.addLayer({
+      id: 'route-io-label', type: 'symbol', source: 'route', filter: ['==', ['get', 'role'], 'io'],
+      layout: {
+        'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 12,
+        'text-offset': [0, -1.25], 'text-anchor': 'bottom', 'text-allow-overlap': true, 'text-ignore-placement': true,
+      },
+      paint: { 'text-color': ['case', ['get', 'smart'], '#15803d', '#c2410c'], 'text-halo-color': '#ffffff', 'text-halo-width': 2 },
     });
     map.on('mouseenter', 'route-alt', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'route-alt', () => { map.getCanvas().style.cursor = ''; });
@@ -508,13 +531,29 @@
       // colour each toll operator's stretch (spans carry the toll system name)
       const sysAt = new Int16Array(r.line.length).fill(-1);
       for (const [a, b, sys] of r.tollSpans || []) for (let i = a; i <= b; i++) sysAt[i] = systemIndex(r, sys);
+      // non-toll stretches between two toll stretches = off the expressway (only when waypoints split the trip)
+      const firstToll = sysAt.findIndex((x) => x >= 0);
+      let lastToll = -1;
+      for (let i = sysAt.length - 1; i >= 0; i--) if (sysAt[i] >= 0) { lastToll = i; break; }
+      const offable = !!r._analysis?.groups.length;
       let start = 0;
       for (let i = 1; i <= r.line.length; i++) {
         if (i === r.line.length || sysAt[i] !== sysAt[start]) {
           const end = Math.min(i, r.line.length - 1);
           const si = sysAt[start];
-          if (end > start) features.push({ type: 'Feature', properties: { role: 'main', toll: si >= 0, color: si >= 0 ? SYSTEM_COLORS[si % SYSTEM_COLORS.length] : null }, geometry: { type: 'LineString', coordinates: r.line.slice(start, end + 1) } });
+          const off = offable && si < 0 && start > firstToll && end < lastToll;
+          if (end > start) features.push({ type: 'Feature', properties: { role: off ? 'off' : 'main', toll: si >= 0, color: si >= 0 ? SYSTEM_COLORS[si % SYSTEM_COLORS.length] : null }, geometry: { type: 'LineString', coordinates: r.line.slice(start, end + 1) } });
           start = i;
+        }
+      }
+      for (const g of r._analysis?.groups || []) {
+        const smart = !!g.smart?.ok;
+        const pt = (p) => [p.lng, p.lat];
+        if (g.sameIc) {
+          features.push({ type: 'Feature', properties: { role: 'io', smart, label: `⇄ ${nfkc(g.exitIc)}` }, geometry: { type: 'Point', coordinates: pt(g.exitGate) } });
+        } else {
+          features.push({ type: 'Feature', properties: { role: 'io', smart, label: `出 ${nfkc(g.exitIc || '')}` }, geometry: { type: 'Point', coordinates: pt(g.exitGate) } });
+          features.push({ type: 'Feature', properties: { role: 'io', smart, label: `入 ${nfkc(g.entryIc || '')}` }, geometry: { type: 'Point', coordinates: pt(g.entryGate) } });
         }
       }
       for (const t of r.tolls || []) {
@@ -607,29 +646,31 @@
     const ep = epOf(role);
     const label = role === 'o' ? '出発' : '到着';
     const pin = `<span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span>`;
-    if (!ep) {
+    if (!ep || S.editing === role) {
       const here = S.locating === role
         ? '<span class="muted route-locating">取得中…</span>'
         : navigator.geolocation ? `<button type="button" class="route-here" data-route-here="${role}" title="現在地を${label}地にする">${LOCATE_ICON}現在地</button>` : '';
       return `<div class="route-ep empty">${pin}${searchBox(role, `${label}地を検索、または地図で選択`)}${here}</div>`;
     }
-    const warn = ep.kind === 'ic' && !ep.gate ? '<span class="route-warn" title="料金所の位置が見つからないため、IC付近の地点から計算します">位置は概略</span>' : '';
-    return `<div class="route-ep">${pin}${catIcon(ep.cat)}${nameHtml(ep)}${warn}<button type="button" class="route-x" data-route-clear="${role}" aria-label="${label}地を解除">×</button></div>`;
+    const warn = ep.kind === 'ic' && !ep.gate ? '<span class="route-warn" title="料金所の位置が見つからないため、IC付近の地点から計算します">概略</span>' : '';
+    return `<div class="route-ep">${pin}${catIcon(ep.cat)}${nameHtml(ep, role)}${warn}<button type="button" class="route-x" data-route-clear="${role}" aria-label="${label}地を解除" title="削除">×</button></div>`;
   }
-  function nameHtml(ep) {
+  /** The name is a button: clicking it turns the row into a search box to pick another place. */
+  function nameHtml(ep, role) {
     const n = displayName(ep);
     const tag = CAT[ep.cat] && ep.cat !== 'ic' && ep.cat !== 'here' && !n.startsWith(CAT[ep.cat].label) ? `<em>${CAT[ep.cat].label}</em>` : '';
-    return `<span class="name" title="${esc(n)}"><span class="n">${esc(n)}${tag}</span>${ep.sub ? `<small>${esc(ep.sub)}</small>` : ''}</span>`;
+    return `<button type="button" class="name route-edit" data-route-edit="${role}" title="${esc(n)}（クリックで変更）"><span class="n">${esc(n)}${tag}</span>${ep.sub ? `<small>${esc(ep.sub)}</small>` : ''}</button>`;
   }
   function viaRow(i, n) {
     const v = S.vias[i];
     const role = `v${i}`;
     const pin = `<span class="route-pin-mini v${v.empty || !stationPair(v.ll) ? '' : ' smart'}">${n}</span>`;
-    const remove = `<button type="button" class="route-x" data-route-remove="${i}" aria-label="経由地${n}を削除">×</button>`;
-    if (v.empty) return `<div class="route-ep empty via">${pin}${searchBox(role, '経由地（充電器・道の駅など）を検索')}${remove}</div>`;
+    const remove = `<button type="button" class="route-x" data-route-remove="${i}" aria-label="経由地${n}を削除" title="削除">×</button>`;
+    if (v.empty || S.editing === role) return `<div class="route-ep empty via">${pin}${searchBox(role, '経由地（充電器・道の駅など）を検索')}${remove}</div>`;
     const opts = STOP_OPTIONS.map((m) => `<option value="${m}"${m === v.stop ? ' selected' : ''}>${m ? `停車 ${m}分` : '停車なし'}</option>`).join('');
-    const smart = stationPair(v.ll) ? '<span class="route-tag smart" title="賢い料金の対象の道の駅">賢い料金</span>' : '';
-    return `<div class="route-ep via">${pin}${catIcon(v.cat)}${nameHtml(v)}${smart}
+    const pair = stationPair(v.ll);
+    const smart = pair ? `<span class="route-tag smart" title="賢い料金の対象（${esc(nfkc(pair.ic))} ⇄ 道の駅「${esc(pair.station)}」）">賢い料金</span>` : '';
+    return `<div class="route-ep via">${pin}${catIcon(v.cat)}${nameHtml(v, role)}${smart}
       <select class="route-stop-sel${v.stop ? ' set' : ''}" data-route-stop="${i}" title="停車時間（任意）。賢い料金の時間判定に使います" aria-label="経由地${n}での停車時間">${opts}</select>${remove}</div>`;
   }
   function waypointRows() {
@@ -642,57 +683,48 @@
     rows.push(epRow('d'));
     return `<div class="route-stops">${rows.join('')}</div>`;
   }
+  const smartCond = (pair) => `ETC2.0車で、道の駅「${pair.station}」の出入口のアンテナを通過し、${nfkc(pair.ic)}から同じ方向へ${smartLimit(pair) / 60}時間以内に戻ると、降りなかった扱いの料金になります（賢い料金・社会実験）`;
+  /** Tabs = complete routes drawn on the map. No waypoints: HERE alternatives. Waypoints: 直行 / 寄り道 (+ 道の駅経由 proposal). */
   function altTabs() {
-    if (S.routes.length < 2) return '';
-    return `<div class="route-alts" role="tablist" aria-label="経路の候補">${S.routes.map((rt, i) => `<button type="button" role="tab" aria-selected="${i === S.routeIdx}" class="${i === S.routeIdx ? 'active' : ''}" data-route-alt="${i}">
-        <span>ルート${i + 1}</span><b>${yen(rt.etc)}</b><small>${fmtMin(rt.min)} · ${rt.km}km</small></button>`).join('')}</div>`;
+    const withVias = realVias().length > 0;
+    if (S.routes.length < 2 && !withVias) return '';
+    const direct = S.routes[0];
+    const tabs = S.routes.map((rt, i) => {
+      const a = rt._analysis;
+      const fare = a?.smartApplied ? a.effective : rt.etc;
+      const name = withVias ? (i === 0 ? '直行' : '寄り道') : `ルート${i + 1}`;
+      const diff = withVias && i > 0 ? `<em class="${fare > direct.etc ? 'up' : fare < direct.etc ? 'down' : ''}">${signedYen(fare - direct.etc)}</em>` : '';
+      const sub = a?.smartApplied ? `<small class="smart" title="${esc(a.groups.filter((g) => g.smart?.ok).map((g) => smartCond(g.smart.pair)).join('\n'))}">ETC2.0 賢い料金 · 通常 ${yen(rt.etc)}</small>` : `<small>${fmtMin(rt.min)} · ${rt.km}km</small>`;
+      return `<button type="button" role="tab" aria-selected="${i === S.routeIdx}" class="${i === S.routeIdx ? 'active' : ''}" data-route-alt="${i}">
+        <span>${name}${diff}</span><b>${yen(fare)}</b>${sub}</button>`;
+    });
+    // a 賢い料金 道の駅 near a stretch: offer it as a third route (adds the 道の駅 as a waypoint)
+    const hint = withVias && realVias().length < MAX_VIAS ? S.routes[1]?._analysis?.groups.find((g) => g.hintPair) : null;
+    if (hint) {
+      tabs.push(`<button type="button" class="proposal" data-route-add-station="${esc(hint.hintPair.station)}" data-at="${hint.members[0] ?? 0}" title="${esc(smartCond(hint.hintPair))}">
+        <span>＋ 道の駅経由</span><b>${yen(direct.etc)}</b><small>道の駅「${esc(hint.hintPair.station)}」· ETC2.0</small></button>`);
+    }
+    return `<div class="route-alts" role="tablist" aria-label="経路の候補">${tabs.join('')}</div>`;
   }
   function discountHtml(r) {
     const kinds = new Set((r.tolls || []).map((t) => t.discount).filter(Boolean));
     if (!kinds.size) return '';
-    const label = { night: '深夜割引（0〜4時）', holiday: '休日割引' };
-    return `<div class="route-disc">${[...kinds].map((k) => `<span>${label[k] || k}</span>`).join('')}適用（出発日時で変わります）</div>`;
+    const label = { night: '深夜割引', holiday: '休日割引' };
+    const tip = { night: '0〜4時に走る区間は約3割引（出発日時で変わります）', holiday: '土日祝は地方部の区間が約3割引' };
+    return `<div class="route-disc">${[...kinds].map((k) => `<span title="${tip[k] || ''}">${label[k] || k}</span>`).join('')}</div>`;
   }
-  function viaName(i) {
-    const v = realVias()[i];
-    return v ? esc(displayName(v)) : '';
-  }
-  function analysisHtml() {
+  /** One chip per stretch off the expressway: where it leaves and re-enters (matches 出/入 on the map). */
+  function ioChips() {
     const a = S.analysis;
-    if (!a) return '';
-    const r = S.result;
-    const exits = a.groups.map((g) => (g.sameIc ? `${nfkc(g.exitIc)}で一時退出` : `${nfkc(g.exitIc || '?')}→${nfkc(g.entryIc || '?')}`)).join('・');
-    const rows = [`<div><span>直行<small>高速を降りない</small></span><b>${yen(a.directEtc)}</b></div>`];
-    if (a.groups.length) {
-      rows.push(`<div><span>一時退出の通常料金<small>${esc(exits)}</small></span><b>${yen(r.etc)}</b><em class="${r.etc > a.directEtc ? 'up' : ''}">${signedYen(r.etc - a.directEtc)}</em></div>`);
-    } else {
-      rows.push(`<div><span>経由地あり（高速を降りない）</span><b>${yen(r.etc)}</b><em>${signedYen(r.etc - a.directEtc)}</em></div>`);
-    }
-    if (a.smartApplied) rows.push(`<div class="smart"><span>道の駅に立ち寄り<small>賢い料金・ETC2.0</small></span><b>${yen(a.effective)}</b><em>${signedYen(a.effective - a.directEtc)}</em></div>`);
-    const cheaper = a.groups.length && r.etc < a.directEtc
-      ? '<div class="muted route-cheaper">直行より安いのは、降りたICと戻ったICが違い、途中を一般道で走る別の経路になっているためです。</div>'
-      : '';
-    const groups = a.groups.map((g) => {
-      const names = g.members.map(viaName).filter(Boolean).join('・');
-      const where = g.sameIc ? `${esc(nfkc(g.exitIc))}で降りて同じICから戻る` : `${esc(nfkc(g.exitIc || '?'))}で降りて${esc(nfkc(g.entryIc || '?'))}から戻る`;
-      let note = '<span class="route-tag split">料金が2回に分かれます</span>';
-      if (g.smart?.ok) {
-        const inside = g.members.some((i) => realVias()[i] && realVias()[i].cat !== 'michinoeki' && km(realVias()[i].ll, g.smart.pair.station_coords) <= AT_STATION_KM);
-        const visited = g.members.some((i) => realVias()[i]?.cat === 'michinoeki');
-        const why = visited ? `道の駅「${esc(g.smart.pair.station)}」に立ち寄り` : inside ? `充電器が道の駅「${esc(g.smart.pair.station)}」の敷地内にあるため立ち寄り条件を満たす` : `道の駅「${esc(g.smart.pair.station)}」に立ち寄り`;
-        note = `<span class="route-tag smart">賢い料金：降りなかった扱い（${why}・約${g.offMin}分で戻る）</span><div class="muted route-smart-cond">条件：ETC2.0車で、道の駅の出入口のアンテナを通過し、${esc(nfkc(g.smart.pair.ic))}から同じ方向へ${smartLimit(g.smart.pair) / 60}時間以内に戻ること</div>`;
-      }
-      else if (g.smart) note = `<span class="route-tag split">戻るまで約${g.offMin}分で${smartLimit(g.smart.pair) / 60}時間を超えるため、賢い料金の対象外の見込み</span>`;
-      else if (g.stationPair) note = `<span class="route-tag split">${esc(nfkc(g.stationPair.ic))}で降りて同じICに戻る経路にならないため、賢い料金の対象外の見込み</span>`;
-      const hint = g.hintPair && realVias().length < MAX_VIAS
-        ? `<div class="route-hint-smart">近くに賢い料金の道の駅「${esc(g.hintPair.station)}」（${esc(nfkc(g.hintPair.ic))}）があります。道の駅にも寄ると、${esc(nfkc(g.hintPair.ic))}で降りて同じICに戻る経路にし、ETC2.0なら<b>直行と同じ ${yen(a.directEtc)}</b>になります（${smartLimit(g.hintPair) / 60}時間以内に戻る場合）。
-            <button type="button" data-route-add-station="${esc(g.hintPair.station)}" data-at="${g.members[0] ?? 0}">道の駅を経由地に追加</button></div>`
-        : '';
-      return `<li><div class="route-exit-where">${where}</div><div class="muted">寄り道：${names || '—'}</div>${note}${hint}</li>`;
-    }).join('');
-    return `<div class="route-compare">${rows.join('')}</div>${cheaper}${groups ? `<ul class="route-groups">${groups}</ul>` : ''}`;
-  }
-  function renderCard() {
+    if (!a?.groups.length) return '';
+    return `<div class="route-io">${a.groups.map((g) => {
+      const smart = g.smart?.ok;
+      const label = g.sameIc ? `⇄ ${esc(nfkc(g.exitIc))}` : `出 ${esc(nfkc(g.exitIc || '?'))} → 入 ${esc(nfkc(g.entryIc || '?'))}`;
+      const tip = smart ? smartCond(g.smart.pair) : g.smart ? `戻るまで約${g.offMin}分のため賢い料金の対象外（${smartLimit(g.smart.pair) / 60}時間以内が条件）`
+        : g.stationPair ? `${nfkc(g.stationPair.ic)}から同じICに戻る経路にならないため賢い料金の対象外` : '高速道路を降りるため、料金がここで分かれます';
+      return `<span class="chip${smart ? ' smart' : ''}${g.smart && !smart ? ' warn' : ''}" title="${esc(tip)}">${label}${smart ? ' <b>賢い料金</b>' : ''}</span>`;
+    }).join('')}</div>`;
+  }  function renderCard() {
     if (!card) return;
     const focused = document.activeElement?.dataset?.routeQ;
     const idle = !S.o && !S.d && !S.vias.length;
@@ -701,7 +733,7 @@
     const r = S.result;
     let body = '';
     if (!S.o || !S.d) {
-      body = S.error ? `<p class="route-error">${esc(S.error)}</p>` : idle ? '' : '<p class="route-hint">検索のほか、IC・施設・充電器のポップアップや地図の右クリック／長押しでも指定できます。</p>';
+      body = S.error ? `<p class="route-error">${esc(S.error)}</p>` : '';
     } else if (S.loading) {
       body = '<p class="route-hint">計算中…</p>';
     } else if (S.error) {
@@ -716,13 +748,13 @@
       body = `
         ${altTabs()}
         <div class="route-summary">
-          <div class="price"><b>${yen(etc)}</b><span>${S.analysis?.smartApplied ? 'ETC2.0・賢い料金' : 'ETC'}</span></div>
-          <div class="meta">${r.km} km · ${fmtMin(r.min)}${realVias().length ? '（停車を含む）' : ''}</div>
+          <div class="price"><b>${yen(etc)}</b><span>${S.analysis?.smartApplied ? 'ETC2.0 賢い料金' : 'ETC'}</span>${S.analysis?.smartApplied ? `<s title="賢い料金を使わない場合">${yen(r.etc)}</s>` : ''}</div>
+          <div class="meta">${r.km} km · ${fmtMin(r.min)}</div>
           ${discountHtml(r)}
+          ${ioChips()}
         </div>
         ${r.cash != null && r.cash !== r.etc && !S.analysis ? `<div class="muted route-cash">現金 ${yen(r.cash)}</div>` : ''}
-        ${analysisHtml()}
-        ${r.hasToll ? `<div class="route-breakdown"><div class="route-breakdown-head">料金の内訳<small>色は地図の線と対応</small></div><ol>${tolls}</ol></div>` : '<p class="route-hint">この経路は有料道路を使いません（HEREの経路選択による）。</p>'}`;
+        ${r.hasToll ? `<div class="route-breakdown"><div class="route-breakdown-head" title="色は地図の線の色と対応しています">料金の内訳</div><ol>${tolls}</ol></div>` : '<p class="route-hint">この経路は有料道路を使いません（HEREの経路選択による）。</p>'}`;
     }
     const head = `
       <div class="route-head"><h3>経路・料金</h3>
@@ -746,7 +778,7 @@
       <label class="route-time"><span>出発</span><input type="datetime-local" step="3600" value="${esc(S.t || defaultTime())}" data-route-time></label>
       ${body}
       ${links()}
-      <details class="route-note"><summary>経路・料金 © HERE · 料金について</summary>所要時間が最短の経路での目安です（普通車・ETC）。公式の料金と異なる場合があります。経由地で高速道路を降りると料金が分かれます。「賢い料金」は ETC2.0 車で、対象の道の駅の出入口のアンテナ通過が条件です。<a href="about.html#route" target="_blank" rel="noopener">詳しく</a></details>`;
+      <div class="route-note" title="所要時間が最短の経路での目安（普通車・ETC）。公式の料金と異なる場合があります">経路・料金 © HERE · <a href="about.html#route" target="_blank" rel="noopener">料金について</a></div>`;
     }
     if (focused) {
       const el = card.querySelector(`[data-route-q="${focused}"]`);
@@ -814,7 +846,21 @@
   function pickResult(role, r) {
     closeSug(role);
     S.q[role] = '';
+    S.editing = null;
     setEndpoint(role, toEndpoint(r));
+  }
+  function startEdit(role) {
+    const ep = epOf(role);
+    if (!ep) return;
+    S.editing = role;
+    S.q[role] = displayName(ep);
+    renderCard();
+    const el = card.querySelector(`[data-route-q="${role}"]`);
+    if (el) { el.focus(); el.select(); }
+  }
+  function cancelEdit() {
+    S.editing = null;
+    renderCard();
   }
   function onSearchInput(e) {
     const role = e.target.dataset?.routeQ;
@@ -841,6 +887,7 @@
       else searchRemote(role);
     } else if (e.key === 'Escape') {
       closeSug(role);
+      if (S.editing === role) cancelEdit();
     }
   }
 
@@ -869,6 +916,8 @@
     }
     const here = e.target.closest('[data-route-here]');
     if (here) { useHere(here.dataset.routeHere); return; }
+    const edit = e.target.closest('[data-route-edit]');
+    if (edit) { startEdit(edit.dataset.routeEdit); return; }
     const clear = e.target.closest('[data-route-clear]');
     const remove = e.target.closest('[data-route-remove]');
     const addStation = e.target.closest('[data-route-add-station]');
@@ -1017,7 +1066,12 @@
     });
     card.addEventListener('focusout', (e) => {
       const role = e.target.dataset?.routeQ;
-      if (role) setTimeout(() => { if (document.activeElement !== e.target) closeSug(role); }, 150);
+      if (role) setTimeout(() => {
+        if (document.activeElement === e.target) return;
+        closeSug(role);
+        // leaving an edited row without choosing a place keeps the previous one
+        if (S.editing === role) cancelEdit();
+      }, 150);
     });
     // compact by default on small screens so the map stays usable
     S.collapsed = window.matchMedia('(max-width: 760px)').matches;

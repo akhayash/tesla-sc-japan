@@ -3,7 +3,9 @@ name: Deploy route API
 # Deploys api/ (HERE route relay) and its Azure resources (infra/main.bicep).
 # Azure IDs are repository variables and the HERE key is a repository secret; nothing is hard-coded:
 #   vars.AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID  (user-assigned identity with a
-#   federated credential for this repo's main branch), vars.AZURE_RESOURCE_GROUP, secrets.HERE_API_KEY
+#   federated credential for this repo's main branch), vars.AZURE_RESOURCE_GROUP, secrets.HERE_API_KEY.
+# HERE Usage API check (optional): secrets.HERE_ACCESS_KEY_ID / HERE_ACCESS_KEY_SECRET, vars.HERE_ORG_ID.
+# Manual kill switch: run this workflow with paused=true (stays until the next deploy with false).
 on:
   push:
     branches: [main]
@@ -12,6 +14,11 @@ on:
       - 'infra/**'
       - '.github/workflows/deploy-api.yml'
   workflow_dispatch:
+    inputs:
+      paused:
+        description: Stop all HERE calls
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -57,12 +64,17 @@ jobs:
         id: infra
         env:
           HERE_API_KEY: ${{ secrets.HERE_API_KEY }}
+          HERE_ACCESS_KEY_ID: ${{ secrets.HERE_ACCESS_KEY_ID }}
+          HERE_ACCESS_KEY_SECRET: ${{ secrets.HERE_ACCESS_KEY_SECRET }}
+          HERE_ORG_ID: ${{ vars.HERE_ORG_ID }}
+          PAUSED: ${{ inputs.paused == true }}
         run: |
           app=$(az deployment group create \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --name "route-${{ github.run_number }}" \
             --template-file infra/main.bicep \
-            --parameters hereApiKey="$HERE_API_KEY" \
+            --parameters hereApiKey="$HERE_API_KEY" hereAccessKeyId="$HERE_ACCESS_KEY_ID" \
+              hereAccessKeySecret="$HERE_ACCESS_KEY_SECRET" hereOrgId="$HERE_ORG_ID" paused="$PAUSED" \
             --query properties.outputs.functionAppName.value -o tsv)
           echo "app=$app" >> "$GITHUB_OUTPUT"
       - name: Deploy function code

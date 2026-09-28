@@ -1,6 +1,5 @@
-// Abuse protection: a per-IP limiter (per instance, in memory) and a global daily cap on
-// HERE calls (shared through Azure Table Storage when configured) so the HERE free tier
-// cannot be exceeded. No routing results are stored anywhere (HERE terms).
+// Abuse protection: a per-IP limiter (per instance, in memory). The global HERE budget is in
+// budget.js. No routing results are stored anywhere (HERE terms).
 
 export class IpLimiter {
   constructor({ perMinute = 10, perDay = 150, now = () => Date.now() } = {}) {
@@ -37,61 +36,6 @@ export class IpLimiter {
 
 export function jstDay(now = new Date()) {
   return new Date(now.getTime() + 9 * 3600e3).toISOString().slice(0, 10).replaceAll('-', '');
-}
-
-export class MemoryCounter {
-  constructor() {
-    this.counts = new Map();
-  }
-
-  async incrementIfBelow(day, cap) {
-    const n = this.counts.get(day) || 0;
-    if (n >= cap) return false;
-    this.counts.set(day, n + 1);
-    return true;
-  }
-}
-
-/** Daily counter in Azure Table Storage with optimistic concurrency. */
-export class TableCounter {
-  constructor(client) {
-    this.client = client;
-    this.ready = null;
-  }
-
-  async init() {
-    this.ready ??= this.client.createTable().catch((e) => {
-      if (e.statusCode === 409) return;
-      this.ready = null; // retry on the next request (e.g. identity/role not ready at cold start)
-      throw e;
-    });
-    return this.ready;
-  }
-
-  async incrementIfBelow(day, cap) {
-    await this.init();
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      let entity = null;
-      try {
-        entity = await this.client.getEntity('here', day);
-      } catch (e) {
-        if (e.statusCode !== 404) throw e;
-      }
-      const n = entity ? Number(entity.count) : 0;
-      if (n >= cap) return false;
-      try {
-        if (entity) {
-          await this.client.updateEntity({ partitionKey: 'here', rowKey: day, count: n + 1 }, 'Replace', { etag: entity.etag });
-        } else {
-          await this.client.createEntity({ partitionKey: 'here', rowKey: day, count: 1 });
-        }
-        return true;
-      } catch (e) {
-        if (e.statusCode !== 409 && e.statusCode !== 412) throw e;
-      }
-    }
-    return false;
-  }
 }
 
 export function clientIp(headers) {

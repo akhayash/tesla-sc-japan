@@ -63,7 +63,7 @@ def fake_relay(route):
     import json as _json
     route_requests.append(route.request.url)
     if route_status["code"] != 200:
-        route.fulfill(status=route_status["code"], content_type="application/json", body=_json.dumps({"error": "rate_limited"}),
+        route.fulfill(status=route_status["code"], content_type="application/json", body=_json.dumps({"error": route_status.get("error", "rate_limited")}),
                       headers={"Access-Control-Allow-Origin": "*"})
         return
     url = route.request.url.replace("%2C", ",").replace("%7C", "|")
@@ -97,7 +97,7 @@ errors: list[str] = []
 with sync_playwright() as p:
     browser = p.chromium.launch(channel="msedge", headless=True, args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
     page = browser.new_page(viewport={"width": 1400, "height": 900}, geolocation={"latitude": 34.75, "longitude": 137.80}, permissions=["geolocation", "clipboard-read", "clipboard-write"])
-    page.on("console", lambda m: m.type == "error" and "status of 429" not in m.text and errors.append(m.text))
+    page.on("console", lambda m: m.type == "error" and "status of 429" not in m.text and "status of 503" not in m.text and errors.append(m.text))
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/api/route?*", fake_relay)
     for name, h in CASES.items():
@@ -252,7 +252,7 @@ with sync_playwright() as p:
                 errors.append("map-point route did not send a single plain-point request")
             if "place~" not in page.url.replace("%7E", "~"):
                 errors.append("map-point endpoints were not kept in the URL")
-            route_status["code"] = 429
+            route_status.update(code=429, error="rate_limited")
             page.click("[data-route-swap]")
             page.wait_for_selector(".route-error", timeout=10000)
             if "1分" not in page.inner_text(".route-error"):
@@ -261,6 +261,13 @@ with sync_playwright() as p:
             page.click("[data-route-retry]")
             page.wait_for_selector(".route-summary", timeout=10000)
             page.screenshot(path=str(OUT / "route_point_done.png"))
+            route_status.update(code=503, error="monthly_cap")
+            page.click("[data-route-swap]")
+            page.wait_for_selector(".route-error", timeout=10000)
+            page.screenshot(path=str(OUT / "route_monthly_cap.png"))
+            if "今月" not in page.inner_text(".route-error") or page.query_selector("[data-route-retry]") or not page.query_selector(".route-actions a[href*='google.com/maps']"):
+                errors.append("monthly cap should show a final message with the Google Maps link and no retry")
+            route_status.update(code=200, error="rate_limited")
         if name == "route_here":
             n0 = len(route_requests)
             page.mouse.click(1000, 400, button="right")

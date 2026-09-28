@@ -1,6 +1,6 @@
 import { attempts, BadRequest, parseRequest } from './params.js';
 import { buildHereUrl, summarize } from './here.js';
-import { clientIp, jstDay } from './limits.js';
+import { clientIp } from './limits.js';
 
 const json = (status, body, extra = {}) => ({
   status,
@@ -9,7 +9,7 @@ const json = (status, body, extra = {}) => ({
 });
 
 /**
- * deps: { apiKey, fetch, limiter (IpLimiter), counter (MemoryCounter|TableCounter), dailyCap, log }
+ * deps: { apiKey, fetch, limiter (IpLimiter), budget (Budget), txPerCall, log }
  */
 export async function handleRoute(request, deps) {
   if (!deps.apiKey) return json(500, { error: 'not_configured' });
@@ -30,18 +30,11 @@ export async function handleRoute(request, deps) {
       if (best) break;
       return json(429, { error: 'rate_limited' }, { 'Retry-After': '60' });
     }
-    let allowed;
-    try {
-      allowed = await deps.counter.incrementIfBelow(jstDay(), deps.dailyCap);
-    } catch (e) {
-      // fail closed: without the counter the HERE budget cannot be protected
-      deps.log?.(`usage counter failed: ${e.message}`);
+    // alternatives may be billed as separate routes: count them too (conservative)
+    const denied = await reserve(deps, 1 + (req.alternatives || 0));
+    if (denied) {
       if (best) break;
-      return json(503, { error: 'counter_unavailable' });
-    }
-    if (!allowed) {
-      if (best) break;
-      return json(503, { error: 'daily_cap' });
+      return denied;
     }
     tried += 1;
     let res;
@@ -73,17 +66,24 @@ export async function handleRoute(request, deps) {
   return json(200, { ...best, departure: req.departure, attempts: tried, attribution: 'HERE' });
 }
 
+/** Reserve HERE routes in the monthly budget. Returns null or an error response. */
+async function reserve(deps, routes) {
+  let code;
+  try {
+    code = await deps.budget.take((deps.txPerCall ?? 2) * routes);
+  } catch (e) {
+    // fail closed: without the counter the HERE budget cannot be protected
+    deps.log?.(`usage counter failed: ${e.message}`);
+    return json(503, { error: 'counter_unavailable' });
+  }
+  return code ? json(503, { error: code }) : null;
+}
+
 /** One budgeted HERE call. Returns { summary } or { error: <response> }. */
 async function callHere(url, ip, deps) {
   if (!deps.limiter.take(ip)) return { error: json(429, { error: 'rate_limited' }, { 'Retry-After': '60' }) };
-  let allowed;
-  try {
-    allowed = await deps.counter.incrementIfBelow(jstDay(), deps.dailyCap);
-  } catch (e) {
-    deps.log?.(`usage counter failed: ${e.message}`);
-    return { error: json(503, { error: 'counter_unavailable' }) };
-  }
-  if (!allowed) return { error: json(503, { error: 'daily_cap' }) };
+  const denied = await reserve(deps, 1);
+  if (denied) return { error: denied };
   let res;
   try {
     res = await deps.fetch(url);

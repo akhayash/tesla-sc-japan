@@ -191,6 +191,7 @@
     S.routes = [];
     S.routeIdx = 0;
     S.error = '';
+    S.noRetry = false;
   }
   async function setRole(role, ep) {
     const withG = await withGate(ep);
@@ -247,6 +248,7 @@
     }
     S.locating = role;
     S.error = '';
+    S.noRetry = false;
     draw();
     renderCard();
     try {
@@ -275,6 +277,7 @@
   function errorText(e) {
     if (e.status === 429) return '短時間のリクエストが多すぎます。1分ほど待ってから再試行してください。';
     if (e.code === 'daily_cap') return '本日の経路計算の上限に達しました。明日あらためてお試しください。';
+    if (e.code === 'monthly_cap' || e.code === 'paused') return '今月の経路計算の上限に達しました。';
     if (e.status === 404) return '経路が見つかりませんでした。';
     if (e.status === 400) return '指定した地点では計算できません。';
     if (!e.status) return '経路サーバーに接続できません。';
@@ -459,6 +462,7 @@
       if (seq !== S.seq) return;
       invalidate();
       S.error = errorText(e);
+      S.noRetry = ['monthly_cap', 'paused'].includes(e.code);
     }
     S.loading = false;
     draw();
@@ -755,7 +759,7 @@
     } else if (S.loading) {
       body = '<p class="route-hint">計算中…</p>';
     } else if (S.error) {
-      body = `<p class="route-error">${esc(S.error)}</p><button type="button" class="route-retry" data-route-retry>再試行</button>`;
+      body = `<p class="route-error">${esc(S.error)}</p>${S.noRetry ? '' : '<button type="button" class="route-retry" data-route-retry>再試行</button>'}`;
     } else if (r) {
       const etc = S.analysis?.smartApplied ? S.analysis.effective : r.etc;
       const discLabel = { night: '深夜', holiday: '休日' };

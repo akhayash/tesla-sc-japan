@@ -18,8 +18,21 @@ param allowedOrigins array = [
   'https://akhayash.github.io'
 ]
 
-@description('Upper bound of HERE calls per JST day (HERE Base plan free tier: 30,000/month).')
-param dailyCap int = 900
+@secure()
+@description('HERE OAuth credentials (same organization) for the hourly Usage API check. Optional.')
+param hereAccessKeyId string = ''
+
+@secure()
+param hereAccessKeySecret string = ''
+
+@description('HERE organization (realm) ID, e.g. org123456789. Optional; with the credentials above.')
+param hereOrgId string = ''
+
+@description('HERE transactions per UTC month before the relay stops (Base plan free tier: 30,000; a route with tolls counts 2).')
+param monthlyTxCap int = 29400
+
+@description('Stop all HERE calls (manual kill switch).')
+param paused bool = false
 
 @description('Maximum on-demand instances; kept small so cost and per-instance rate limits stay bounded.')
 @minValue(1)
@@ -107,9 +120,14 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
         { name: 'HERE_API_KEY', value: hereApiKey }
         { name: 'ROUTE_TABLE_ENDPOINT', value: storage.properties.primaryEndpoints.table }
-        { name: 'ROUTE_DAILY_CAP', value: string(dailyCap) }
+        { name: 'ROUTE_MONTHLY_TX_CAP', value: string(monthlyTxCap) }
+        { name: 'ROUTE_TX_PER_CALL', value: '2' }
+        { name: 'ROUTE_PAUSED', value: paused ? '1' : '0' }
         { name: 'ROUTE_PER_IP_PER_MINUTE', value: '20' }
-        { name: 'ROUTE_PER_IP_PER_DAY', value: '300' }
+        { name: 'ROUTE_PER_IP_PER_DAY', value: '80' }
+        { name: 'HERE_ACCESS_KEY_ID', value: hereAccessKeyId }
+        { name: 'HERE_ACCESS_KEY_SECRET', value: hereAccessKeySecret }
+        { name: 'HERE_ORG_ID', value: hereOrgId }
       ]
     }
     functionAppConfig: {

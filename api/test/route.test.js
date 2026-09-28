@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { decodeFlexPolyline } from '../src/lib/flexpolyline.js';
 import { attempts, BadRequest, parseDeparture, parseEndpoint, parseRequest, parseVias } from '../src/lib/params.js';
 import { buildHereUrl, discountOf, simplifyIndices, summarize } from '../src/lib/here.js';
-import { clientIp, IpLimiter, jstDay, MemoryCounter, TableCounter } from '../src/lib/limits.js';
+import { clientIp, IpLimiter, jstDay } from '../src/lib/limits.js';
+import { Budget, MemoryStore, TableStore } from '../src/lib/budget.js';
 import { handleRoute, shiftDeparture } from '../src/lib/handler.js';
 
 test('decodes the reference flexible polyline', () => {
@@ -149,19 +150,18 @@ test('IC endpoints whose approach equals the gate have a single candidate', () =
   assert.equal(parseEndpoint('35.001,139.001~35.001,139.001', 'o').candidates.length, 1);
 });
 
-test('table counter retries table creation after a failure', async () => {
+test('table store retries table creation after a failure', async () => {
   let calls = 0;
   const client = {
     createTable: async () => { calls += 1; if (calls === 1) throw Object.assign(new Error('forbidden'), { statusCode: 403 }); },
     getEntity: async () => { throw Object.assign(new Error('nf'), { statusCode: 404 }); },
     createEntity: async () => {},
   };
-  const c = new TableCounter(client);
-  await assert.rejects(c.incrementIfBelow('20260101', 10));
-  assert.equal(await c.incrementIfBelow('20260101', 10), true);
+  const b = new Budget({ store: new TableStore(client), monthlyCap: 100 });
+  await assert.rejects(b.take(2));
+  assert.equal(await b.take(2), null);
   assert.equal(calls, 2);
 });
-
 test('per-IP limiter', () => {
   let t = 0;
   const l = new IpLimiter({ perMinute: 2, perDay: 3, now: () => t });
@@ -185,8 +185,7 @@ function deps(overrides = {}) {
     calls,
     apiKey: 'KEY',
     limiter: new IpLimiter(),
-    counter: new MemoryCounter(),
-    dailyCap: 100,
+    budget: new Budget({ store: new MemoryStore(), monthlyCap: 3000, now: () => new Date('2026-09-01T00:00:00Z') }),
     fetch: async (url) => {
       calls.push(new URL(url));
       return { ok: true, status: 200, json: async () => fakeHere() };
@@ -237,14 +236,14 @@ test('handler enforces validation, rate limit and daily cap', async () => {
   assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), deps({ apiKey: '' }))).status, 500);
   const limited = deps({ limiter: new IpLimiter({ perMinute: 0 }) });
   assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), limited)).status, 429);
-  const capped = deps({ dailyCap: 0 });
+  const capped = deps({ budget: new Budget({ store: new MemoryStore(), monthlyCap: 0 }) });
   const res = await handleRoute(request('o=35,139&d=34.9,137.9'), capped);
   assert.equal(res.status, 503);
   assert.equal(capped.calls.length, 0);
 });
 
 test('handler fails closed when the usage counter is unavailable', async () => {
-  const d = deps({ counter: { incrementIfBelow: async () => { throw new Error('down'); } } });
+  const d = deps({ budget: { take: async () => { throw new Error('down'); } } });
   const res = await handleRoute(request('o=35,139&d=34.9,137.9'), d);
   assert.equal(res.status, 503);
   assert.equal(d.calls.length, 0);
@@ -297,4 +296,11 @@ test('waypoints are computed leg by leg and stitched', async () => {
 
 test('shifts JST departure times', () => {
   assert.equal(shiftDeparture('2026-09-29T23:30:00+09:00', 45), '2026-09-30T00:15:00+09:00');
+});
+test('alternatives are counted as separate routes in the budget', async () => {
+  const b = new Budget({ store: new MemoryStore(), monthlyCap: 150, now: () => new Date('2026-09-01T00:00:00Z') }); // 5/day
+  const d = deps({ budget: b });
+  assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9&alt=1'), d)).status, 503);
+  assert.equal(d.calls.length, 0);
+  assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), d)).status, 200);
 });

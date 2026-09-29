@@ -1,5 +1,5 @@
 import { app } from '@azure/functions';
-import { handleRoute } from '../lib/handler.js';
+import { handleRoute, handleUsage } from '../lib/handler.js';
 import { IpLimiter } from '../lib/limits.js';
 import { getBudget, txPerCall } from '../lib/budget-store.js';
 
@@ -21,4 +21,11 @@ app.http('route', {
       txPerCall: txPerCall(),
       log: (m) => context.warn(m),
     }),
+});
+
+app.http('usage', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'usage',
+  handler: async (_request, context) => handleUsage({ budget: await getBudget(), log: (m) => context.warn(m) }),
 });

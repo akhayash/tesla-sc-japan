@@ -148,4 +148,20 @@ export class Budget {
   async state(now = this.now()) {
     return { ...blank(), ...(await this.store.get(utcMonth(now))) };
   }
+
+  /** Public usage figures (no HERE call). */
+  async summary(now = this.now()) {
+    const s = await this.state(now);
+    const today = s.day === utcDay(now);
+    const allowance = today ? s.dayAllowance : dayAllowance(s.count, this.monthlyCap, now, this.dailyMax);
+    const dayUsed = today ? s.dayCount : 0;
+    return {
+      month: utcMonth(now),
+      used: s.count,
+      cap: this.monthlyCap,
+      todayLeft: Math.max(0, allowance - dayUsed),
+      paused: this.paused || s.paused,
+      checkedAt: s.checkedAt || null,
+    };
+  }
 }

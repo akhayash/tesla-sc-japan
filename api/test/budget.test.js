@@ -100,3 +100,22 @@ test('usage poll reconciles and never pauses on failure', async () => {
   assert.equal(await b2.take(2), null);
   assert.equal(await pollUsage(ctx, { env: {}, fetchImpl: ok, budget: b2 }), null);
 });
+
+test('usage summary for the page', async () => {
+  let now = new Date('2026-09-29T10:00:00Z');
+  const b = new Budget({ store: new MemoryStore(), monthlyCap: 100, now: () => now });
+  let s = await b.summary();
+  assert.deepEqual(s, { month: '2026-09', used: 0, cap: 100, todayLeft: 50, paused: false, checkedAt: null });
+  await b.take(1);
+  s = await b.summary();
+  assert.equal(s.used, 1);
+  assert.equal(s.todayLeft, 49);
+  now = new Date('2026-09-30T10:00:00Z');
+  assert.equal((await b.summary()).todayLeft, 99, 'next day: remaining month');
+  const { handleUsage } = await import('../src/lib/handler.js');
+  const res = await handleUsage({ budget: b });
+  assert.equal(res.status, 200);
+  assert.equal(res.jsonBody.used, 1);
+  const bad = await handleUsage({ budget: { summary: async () => { throw new Error('x'); } } });
+  assert.equal(bad.status, 503);
+});

@@ -1299,3 +1299,5 @@ body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
 .route-edit:hover { background: #f3f5f8; }
 .route-note { margin-top: 2px; }
 .route-note a { color: inherit; }
+.route-usage { float: right; margin-left: 6px; opacity: .6; font-variant-numeric: tabular-nums; cursor: default; }
+.route-usage.full { color: #c0392b; opacity: 1; }

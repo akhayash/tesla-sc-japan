@@ -65,6 +65,16 @@ export async function handleRoute(request, deps) {
   return json(200, { ...best, departure: req.departure, attempts: tried, attribution: 'HERE' });
 }
 
+/** GET /api/usage: this month's HERE budget usage (reads the counter only). */
+export async function handleUsage(deps) {
+  try {
+    return json(200, await deps.budget.summary(), { 'Cache-Control': 'public, max-age=60' });
+  } catch (e) {
+    deps.log?.(`usage read failed: ${e.message}`);
+    return json(503, { error: 'counter_unavailable' });
+  }
+}
+
 /** Reserve HERE routes in the monthly budget. Returns null or an error response. */
 async function reserve(deps, routes) {
   let code;

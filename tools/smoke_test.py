@@ -100,6 +100,7 @@ with sync_playwright() as p:
     page.on("console", lambda m: m.type == "error" and "status of 429" not in m.text and "status of 503" not in m.text and errors.append(m.text))
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.route("**/api/route?*", fake_relay)
+    page.route("**/api/usage", lambda r: r.fulfill(status=200, content_type="application/json", body='{"month":"2026-09","used":412,"cap":2450,"todayLeft":79,"paused":false}', headers={"Access-Control-Allow-Origin": "*"}))
     for name, h in CASES.items():
         page.goto("about:blank")
         page.goto(BASE + h)
@@ -261,6 +262,8 @@ with sync_playwright() as p:
             page.click("[data-route-retry]")
             page.wait_for_selector(".route-summary", timeout=10000)
             page.screenshot(path=str(OUT / "route_point_done.png"))
+            if page.inner_text(".route-note .route-usage") != "412/2,450" or "本日の残り 79回" not in (page.get_attribute(".route-usage", "title") or ""):
+                errors.append("HERE usage was not shown next to the attribution")
             route_status.update(code=503, error="monthly_cap")
             page.click("[data-route-swap]")
             page.wait_for_selector(".route-error", timeout=10000)

@@ -4,6 +4,13 @@
 サイト上の表示：[リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)。バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 充電器データの週次自動更新はバージョンに含めません。
 
+## [1.13.2](https://github.com/akhayash/tesla-sc-japan/compare/v1.13.1...v1.13.2) - 2026-09-29
+
+**経路計算の今月の利用回数を表示**
+
+### 追加
+- 経路カードの右下（HEREの表記の横）に、今月の経路計算の利用回数と上限を小さく表示（ツールチップで本日の残りも確認可能）
+
 ## [1.13.1](https://github.com/akhayash/tesla-sc-japan/compare/v1.13.0...v1.13.1) - 2026-09-29
 
 **経路計算の上限をHEREの料金計算の無料枠に合わせる**

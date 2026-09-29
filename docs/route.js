@@ -268,6 +268,33 @@
   }
 
   // ---------- API ----------
+  // HERE budget usage, shown small next to the attribution (reads the relay's counter only)
+  let usageAt = 0;
+  async function loadUsage(force = false) {
+    if (!API || (!force && Date.now() - usageAt < 60e3)) return;
+    usageAt = Date.now();
+    try {
+      const res = await fetch(`${API}/usage`);
+      if (!res.ok) return;
+      const u = await res.json();
+      if (!Number.isFinite(u.used) || !Number.isFinite(u.cap)) return;
+      S.usage = u;
+      card?.querySelector('.route-usage')?.replaceWith(usageEl());
+    } catch { /* optional */ }
+  }
+  function usageHtml() {
+    const u = S.usage;
+    if (!u) return '<span class="route-usage"></span>';
+    const n = (x) => x.toLocaleString('ja-JP');
+    const full = u.paused || u.used >= u.cap;
+    const tip = `HEREの今月（UTC）の経路計算：${n(u.used)} / ${n(u.cap)}回・本日の残り ${n(u.todayLeft)}回`;
+    return `<span class="route-usage${full ? ' full' : ''}" title="${tip}">${n(u.used)}/${n(u.cap)}</span>`;
+  }
+  function usageEl() {
+    const t = document.createElement('template');
+    t.innerHTML = usageHtml();
+    return t.content.firstChild;
+  }
   async function fetchRoute(q) {
     const res = await fetch(`${API}/route?${q}`, { cache: 'no-store' });
     const body = await res.json().catch(() => ({}));
@@ -468,6 +495,7 @@
     draw();
     renderCard();
     if (fit) fitRoute();
+    loadUsage(true);
   }
   function selectRoute(i) {
     if (!S.routes[i] || i === S.routeIdx) return;
@@ -800,7 +828,8 @@
       <label class="route-time"><span>出発</span><input type="datetime-local" step="3600" value="${esc(S.t || defaultTime())}" data-route-time></label>
       ${body}
       ${links()}
-      <div class="route-note" title="所要時間が最短の経路での目安（普通車・ETC）。公式の料金と異なる場合があります">経路・料金 © HERE · <a href="about.html#route" target="_blank" rel="noopener">料金について</a></div>`;
+      <div class="route-note" title="所要時間が最短の経路での目安（普通車・ETC）。公式の料金と異なる場合があります">経路・料金 © HERE · <a href="about.html#route" target="_blank" rel="noopener">料金について</a>${usageHtml()}</div>`;
+      if (!S.usage) loadUsage();
     }
     if (focused) {
       const el = card.querySelector(`[data-route-q="${focused}"]`);

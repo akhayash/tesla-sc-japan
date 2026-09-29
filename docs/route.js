@@ -821,7 +821,8 @@
       return;
     }
     if (idle) {
-      card.innerHTML = `${head}<div class="route-stops">${epRow('o')}${epRow('d')}</div>${body}`;
+      card.innerHTML = `${head}<div class="route-stops">${epRow('o')}${epRow('d')}</div>${body}<div class="route-note">経路・料金 © HERE${usageHtml()}</div>`;
+      if (!S.usage) loadUsage();
     } else {
       card.innerHTML = `${head}
       ${waypointRows()}

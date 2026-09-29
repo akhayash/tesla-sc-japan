@@ -290,6 +290,8 @@ with sync_playwright() as p:
             page.screenshot(path=str(OUT / "route_here.png"))
         if name == "default" and not page.is_visible('.route-card.idle [data-route-q="o"]'):
             errors.append("route search panel should be shown from the start")
+        if name == "default" and page.inner_text(".route-card.idle .route-usage") != "412/2,450":
+            errors.append("HERE usage was not shown on the idle route card")
         if name == "route_search":
             n0 = len(route_requests)
             page.fill('[data-route-q="o"]', "浜松IC")

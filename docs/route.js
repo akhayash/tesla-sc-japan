@@ -688,8 +688,8 @@
     if (S.o && S.d && !S.o.here && !S.d.here) out.push('<button type="button" data-route-share>リンクをコピー</button>');
     return out.length ? `<div class="route-actions">${out.join('')}</div>` : '';
   }
-  function searchBox(role, placeholder) {
-    return `<div class="route-search"><input type="search" class="route-q" data-route-q="${role}" value="${esc(S.q[role] || '')}" placeholder="${placeholder}" autocomplete="off" spellcheck="false" aria-label="${placeholder}" aria-autocomplete="list" aria-controls="route-sug-${role}">
+  function searchBox(role, placeholder, inner = '') {
+    return `<div class="route-search${inner ? ' has-icon' : ''}"><input type="search" class="route-q" data-route-q="${role}" value="${esc(S.q[role] || '')}" placeholder="${placeholder}" autocomplete="off" spellcheck="false" aria-label="${placeholder}" aria-autocomplete="list" aria-controls="route-sug-${role}">${inner}
       <ul class="route-sug" id="route-sug-${role}" data-route-sug="${role}" role="listbox" hidden></ul></div>`;
   }
   function epRow(role) {
@@ -697,10 +697,11 @@
     const label = role === 'o' ? '出発' : '到着';
     const pin = `<span class="route-pin-mini ${role}">${role === 'o' ? 'S' : 'G'}</span>`;
     if (!ep || S.editing === role) {
-      const here = S.locating === role
-        ? '<span class="muted route-locating">取得中…</span>'
-        : navigator.geolocation ? `<button type="button" class="route-here" data-route-here="${role}" title="現在地を${label}地にする">${LOCATE_ICON}現在地</button>` : '';
-      return `<div class="route-ep empty">${pin}${searchBox(role, `${label}地を検索、または地図で選択`)}${here}</div>`;
+      const here = !navigator.geolocation ? ''
+        : S.locating === role
+          ? `<span class="route-here locating" role="status" aria-label="現在地を取得中" title="現在地を取得中">${LOCATE_ICON}</span>`
+          : `<button type="button" class="route-here" data-route-here="${role}" aria-label="現在地を${label}地にする" title="現在地を${label}地にする">${LOCATE_ICON}</button>`;
+      return `<div class="route-ep empty">${pin}${searchBox(role, `${label}地を検索、または地図で選択`, here)}</div>`;
     }
     const warn = ep.kind === 'ic' && !ep.gate ? '<span class="route-warn" title="料金所の位置が見つからないため、IC付近の地点から計算します">概略</span>' : '';
     return `<div class="route-ep">${pin}${catIcon(ep.cat)}${nameHtml(ep, role)}${warn}<button type="button" class="route-x" data-route-clear="${role}" aria-label="${label}地を解除" title="削除">×</button></div>`;

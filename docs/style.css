@@ -1024,12 +1024,16 @@ body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
 .route-set .route-from-here { grid-column: 1 / -1; color: #0f5132; background: #ecfdf5; border-color: #a7f3d0; }
 .route-set .route-from-here:hover { background: #d1fae5; }
 .route-set svg, .route-here svg { width: 13px; height: 13px; fill: currentColor; stroke: currentColor; stroke-width: 2; }
+/* 現在地: an icon inside the right end of the search box */
+.route-search.has-icon .route-q { padding-right: 30px; }
 .route-here {
-  display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 3px 8px;
-  color: #0f5132; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 999px;
-  font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  position: absolute; top: 3px; right: 3px; display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; color: var(--muted); background: none; border: 0; border-radius: 6px; cursor: pointer;
 }
-.route-here:hover { background: #d1fae5; }
+.route-here:hover, .route-here:focus-visible { color: #1d4ed8; background: #e8effd; outline: none; }
+.route-here.locating { color: #1d4ed8; cursor: default; animation: route-pulse 1s ease-in-out infinite; }
+@keyframes route-pulse { 50% { opacity: .35; } }
+.route-here svg { width: 15px; height: 15px; }
 .route-locating { flex: none; font-size: 11px; }
 .route-card.idle { padding: 8px 10px; }
 .route-card.idle .route-head { margin-bottom: 4px; }
@@ -1055,7 +1059,6 @@ body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
 .route-sug li.more { cursor: pointer; color: #1d4ed8; }
 .route-ep.empty { align-items: flex-start; }
 .route-ep.empty > .route-pin-mini { margin-top: 5px; }
-.route-ep.empty > .route-here, .route-ep.empty > .route-locating { margin-top: 2px; }
 .route-visit {
   display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 4px; text-align: left;
   border: 1px solid #bbf7d0; font: inherit; font-size: 11px; cursor: pointer;
@@ -1183,7 +1186,6 @@ body.panel-collapsed .route-card { width: min(340px, calc(100vw - 130px)); }
 .route-ep.empty > .route-pin-mini { margin-top: 7px; }
 .route-q { padding: 7px 10px; background: #f3f5f8; border-color: transparent; border-radius: 9px; font-size: 12.5px; }
 .route-q:focus { border-color: #93c5fd; }
-.route-here { padding: 4px 9px; margin-top: 3px; }
 .route-add-via { margin: 2px 0 6px 25px; padding: 3px 8px; border: 0; color: #c2410c; font-weight: 600; }
 .route-add-via:hover { background: #fff7ed; }
 .route-ep.via .route-stop-sel { height: 24px; padding: 0 4px; border: 1px solid var(--border); border-radius: 7px; background: #fff; color: var(--text); }

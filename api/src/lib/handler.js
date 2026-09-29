@@ -30,8 +30,7 @@ export async function handleRoute(request, deps) {
       if (best) break;
       return json(429, { error: 'rate_limited' }, { 'Retry-After': '60' });
     }
-    // alternatives may be billed as separate routes: count them too (conservative)
-    const denied = await reserve(deps, 1 + (req.alternatives || 0));
+    const denied = await reserve(deps, 1);
     if (denied) {
       if (best) break;
       return denied;
@@ -70,7 +69,7 @@ export async function handleRoute(request, deps) {
 async function reserve(deps, routes) {
   let code;
   try {
-    code = await deps.budget.take((deps.txPerCall ?? 2) * routes);
+    code = await deps.budget.take((deps.txPerCall ?? 1) * routes);
   } catch (e) {
     // fail closed: without the counter the HERE budget cannot be protected
     deps.log?.(`usage counter failed: ${e.message}`);

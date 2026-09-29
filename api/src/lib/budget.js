@@ -1,13 +1,14 @@
-// Monthly budget of HERE transactions. HERE has no hard cap (only alerts) and keeps billing past
-// the free tier, so the relay (the only holder of the key) stops itself:
-//  - every HERE call is counted *before* it is made, weighted by its transactions
-//    (a route with return=tolls is billed as 2),
+// Monthly budget of HERE requests. HERE has no hard cap (only alerts) and keeps billing past
+// the free tier, so the relay (the only holder of the key) stops itself.
+// Each route request is billed once as "Time Aware Routing" (free 5,000/month, because a
+// departure time is sent) and once as "Toll Cost" (free 2,500/month); alternatives don't add.
+// Toll Cost is the tighter one, so the cap is in requests: 2,450 (98% of 2,500).
+//  - every HERE request is counted *before* it is made,
 //  - month = UTC calendar month (HERE bills in UTC), capped at `monthlyCap`,
 //  - each UTC day may use (remaining in month) / (days left), so unused budget carries over,
 //  - an hourly poller raises the count to HERE's own usage figure when that is higher and can
 //    pause the relay for the rest of the month.
 // State is one entity per month so the month and day counters change atomically.
-
 export function utcMonth(now = new Date()) {
   return now.toISOString().slice(0, 7);
 }
@@ -100,7 +101,7 @@ export class TableStore {
 }
 
 export class Budget {
-  constructor({ store, monthlyCap = 29400, dailyMax = Infinity, paused = false, now = () => new Date() }) {
+  constructor({ store, monthlyCap = 2450, dailyMax = Infinity, paused = false, now = () => new Date() }) {
     this.store = store;
     this.monthlyCap = monthlyCap;
     this.dailyMax = dailyMax;

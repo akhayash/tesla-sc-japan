@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Budget, dayAllowance, daysLeftInMonth, MemoryStore, utcMonth } from '../src/lib/budget.js';
-import { oauthHeader, sumTransactions } from '../src/lib/hereUsage.js';
+import { billedRequests, oauthHeader } from '../src/lib/hereUsage.js';
 import { pollUsage } from '../src/lib/usagePoll.js';
 
 const at = (iso) => () => new Date(iso);
@@ -71,14 +71,17 @@ test('OAuth 1.0 header is signed with HMAC-SHA256', () => {
   assert.notEqual(h, oauthHeader({ keyId: 'id', keySecret: 'other', nonce: 'n', timestamp: 1700000000 }));
 });
 
-test('sums transaction usage only', () => {
-  assert.equal(sumTransactions([
-    { valueDriver: 'Transactions', usageValue: '10' },
-    { valueDriver: 'GB', usageValue: '5' },
-    { valueDriver: 'Transactions', usageValue: '3' },
-  ]), 13);
+test('billed requests come from the routing charge items only', () => {
+  assert.equal(billedRequests([
+    { name: 'Time Aware Routing', valueDriver: 'Transactions', usageValue: '362' },
+    { name: 'Toll Cost', valueDriver: 'Transactions', usageValue: '362' },
+    { name: 'Toll Cost', valueDriver: 'Transactions', usageValue: '3' },
+    { name: 'Routing EV', valueDriver: 'Transactions', usageValue: '50' },
+    { name: 'Autosuggest', valueDriver: 'Transactions', usageValue: '900' },
+    { name: 'Data IO', valueDriver: 'GB', usageValue: '5000' },
+  ]), 365);
+  assert.equal(billedRequests([]), 0);
 });
-
 test('usage poll reconciles and never pauses on failure', async () => {
   const ctx = { log() {}, warn() {} };
   const env = { HERE_ACCESS_KEY_ID: 'id', HERE_ACCESS_KEY_SECRET: 'sec', HERE_ORG_ID: 'org1' };
@@ -87,7 +90,7 @@ test('usage poll reconciles and never pauses on failure', async () => {
   const ok = async (url) => {
     urls.push(String(url));
     if (String(url).includes('oauth2')) return { ok: true, json: async () => ({ access_token: 'T' }) };
-    return { ok: true, json: async () => ({ items: [{ name: 'Routing', valueDriver: 'Transactions', usageValue: '120' }] }) };
+    return { ok: true, json: async () => ({ items: [{ name: 'Toll Cost', valueDriver: 'Transactions', usageValue: '120' }, { name: 'Time Aware Routing', valueDriver: 'Transactions', usageValue: '120' }] }) };
   };
   const s = await pollUsage(ctx, { env, fetchImpl: ok, budget: b });
   assert.equal(s.paused, true);

@@ -31,10 +31,10 @@ const num = (v, d, min = 0) => {
 export async function getBudget() {
   return new Budget({
     store: await getStore(),
-    monthlyCap: num(process.env.ROUTE_MONTHLY_TX_CAP, 29400),
+    monthlyCap: num(process.env.ROUTE_MONTHLY_TX_CAP, 2450),
     dailyMax: num(process.env.ROUTE_DAILY_TX_MAX, Infinity),
     paused: process.env.ROUTE_PAUSED === '1',
   });
 }
 
-export const txPerCall = () => num(process.env.ROUTE_TX_PER_CALL, 2, 1);
+export const txPerCall = () => num(process.env.ROUTE_TX_PER_CALL, 1, 1);

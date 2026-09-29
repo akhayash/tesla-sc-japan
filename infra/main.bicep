@@ -28,8 +28,8 @@ param hereAccessKeySecret string = ''
 @description('HERE organization (realm) ID, e.g. org123456789. Optional; with the credentials above.')
 param hereOrgId string = ''
 
-@description('HERE transactions per UTC month before the relay stops (Base plan free tier: 30,000; a route with tolls counts 2).')
-param monthlyTxCap int = 29400
+@description('HERE route requests per UTC month before the relay stops. Each request is billed as Toll Cost (Base plan free tier 2,500/month) and Time Aware Routing (5,000/month).')
+param monthlyTxCap int = 2450
 
 @description('Stop all HERE calls (manual kill switch).')
 param paused bool = false
@@ -121,7 +121,7 @@ resource app 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'HERE_API_KEY', value: hereApiKey }
         { name: 'ROUTE_TABLE_ENDPOINT', value: storage.properties.primaryEndpoints.table }
         { name: 'ROUTE_MONTHLY_TX_CAP', value: string(monthlyTxCap) }
-        { name: 'ROUTE_TX_PER_CALL', value: '2' }
+        { name: 'ROUTE_TX_PER_CALL', value: '1' }
         { name: 'ROUTE_PAUSED', value: paused ? '1' : '0' }
         { name: 'ROUTE_PER_IP_PER_MINUTE', value: '20' }
         { name: 'ROUTE_PER_IP_PER_DAY', value: '80' }

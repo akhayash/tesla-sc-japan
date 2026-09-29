@@ -4,6 +4,14 @@
 サイト上の表示：[リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)。バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 充電器データの週次自動更新はバージョンに含めません。
 
+## [1.13.1](https://github.com/akhayash/tesla-sc-japan/compare/v1.13.0...v1.13.1) - 2026-09-29
+
+**経路計算の上限をHEREの料金計算の無料枠に合わせる**
+
+### 修正
+- HEREの実際の請求項目を確認したところ、経路の問い合わせは「時刻を考慮した経路」（無料枠 月5,000件）と「料金計算」（無料枠 月2,500件）に1件ずつ数えられていた。月の上限を問い合わせ2,450回（料金計算の無料枠の98%）に変更
+- HEREの実際の使用量を1時間ごとに取り込む処理を有効にした
+
 ## [1.13.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.12.0...v1.13.0) - 2026-09-28
 
 **経路計算の上限をHEREの月の無料枠に合わせる**

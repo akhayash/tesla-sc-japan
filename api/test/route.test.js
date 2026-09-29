@@ -297,10 +297,10 @@ test('waypoints are computed leg by leg and stitched', async () => {
 test('shifts JST departure times', () => {
   assert.equal(shiftDeparture('2026-09-29T23:30:00+09:00', 45), '2026-09-30T00:15:00+09:00');
 });
-test('alternatives are counted as separate routes in the budget', async () => {
-  const b = new Budget({ store: new MemoryStore(), monthlyCap: 150, now: () => new Date('2026-09-01T00:00:00Z') }); // 5/day
-  const d = deps({ budget: b });
-  assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9&alt=1'), d)).status, 503);
-  assert.equal(d.calls.length, 0);
-  assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), d)).status, 200);
+test('each HERE request counts once, alternatives included (billed per request)', async () => {
+  const b = new Budget({ store: new MemoryStore(), monthlyCap: 30, now: () => new Date('2026-09-01T00:00:00Z') }); // 1/day
+  const d = deps({ budget: b, txPerCall: 1 });
+  assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9&alt=1'), d)).status, 200);
+  assert.equal((await handleRoute(request('o=35,139&d=34.9,137.9'), d)).status, 503);
+  assert.equal(d.calls.length, 1);
 });

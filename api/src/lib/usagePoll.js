@@ -5,9 +5,9 @@ import { getMonthUsage } from './hereUsage.js';
 // pause for the rest of the month at the cap). A failure here never pauses: the relay's
 // real-time counter still guards the budget.
 export async function pollUsage(context, { env = process.env, fetchImpl = fetch, budget } = {}) {
-  const keyId = env.HERE_ACCESS_KEY_ID;
-  const keySecret = env.HERE_ACCESS_KEY_SECRET;
-  const orgId = env.HERE_ORG_ID;
+  const keyId = env.HERE_ACCESS_KEY_ID?.trim();
+  const keySecret = env.HERE_ACCESS_KEY_SECRET?.trim();
+  const orgId = env.HERE_ORG_ID?.trim();
   if (!keyId || !keySecret || !orgId) {
     context.warn('HERE usage poll skipped: HERE_ACCESS_KEY_ID / HERE_ACCESS_KEY_SECRET / HERE_ORG_ID not set');
     return null;

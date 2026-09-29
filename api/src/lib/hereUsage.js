@@ -40,18 +40,24 @@ export async function getToken({ keyId, keySecret, fetch }) {
   return j.access_token;
 }
 
-/** Transactions HERE has recorded for the org in the given UTC month (all services, conservative). */
-export function sumTransactions(items) {
-  return (items || [])
-    .filter((it) => /transaction/i.test(it.valueDriver || ''))
-    .reduce((a, it) => a + (Number(it.usageValue) || 0), 0);
+/**
+ * Route requests HERE has billed this month. Every relay request is billed once under each of
+ * these charge items, so the largest of them is the request count (other services are ignored).
+ */
+export const ROUTE_ITEMS = /^(toll cost|time aware routing|routing( car.*)?)$/i;
+export function billedRequests(items) {
+  const byItem = {};
+  for (const it of items || []) {
+    if (!/transaction/i.test(it.valueDriver || '') || !ROUTE_ITEMS.test((it.name || '').trim())) continue;
+    byItem[it.name] = (byItem[it.name] || 0) + (Number(it.usageValue) || 0);
+  }
+  return Math.max(0, ...Object.values(byItem));
 }
-
 export async function getMonthUsage({ keyId, keySecret, orgId, fetch, now = new Date() }) {
   const token = await getToken({ keyId, keySecret, fetch });
   const start = `${now.toISOString().slice(0, 7)}-01T00:00:00`;
   const end = now.toISOString().slice(0, 19);
-  let total = 0;
+  const all = [];
   const names = {};
   for (let offset = 0, page = 0; page < 20; page += 1) {
     const q = new URLSearchParams({ startDate: start, endDate: end, limit: '100', offset: String(offset) });
@@ -61,10 +67,10 @@ export async function getMonthUsage({ keyId, keySecret, orgId, fetch, now = new 
     if (!res.ok) throw new Error(`usage HTTP ${res.status}`);
     const j = await res.json();
     const items = j.items || [];
-    total += sumTransactions(items);
+    all.push(...items);
     for (const it of items) if (/transaction/i.test(it.valueDriver || '')) names[it.name] = (names[it.name] || 0) + Number(it.usageValue || 0);
     if (j.nextOffset == null || j.nextOffset <= offset || items.length === 0 || (j.lastOffset != null && offset >= j.lastOffset)) break;
     offset = j.nextOffset;
   }
-  return { total, byName: names };
+  return { total: billedRequests(all), byName: names };
 }

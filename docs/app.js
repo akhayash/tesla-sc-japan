@@ -82,7 +82,7 @@
     layer: 'none', bw: '10', tesla: true, flash: true,
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
     facilityIc: true, facilityJct: true, facilitySmart: true, facilitySa: true, facilityPa: true,
-    poiConvenience: false, poiMichinoeki: false, poiMall: false,
+    poiConvenience: true, poiMichinoeki: true, poiMall: true,
     smartToll: true,
     rankMin: '0', base: 'pale',
   };

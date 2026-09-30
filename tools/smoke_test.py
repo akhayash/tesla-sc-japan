@@ -105,7 +105,7 @@ with sync_playwright() as p:
         page.goto("about:blank")
         page.goto(BASE + h)
         page.wait_for_selector("#loading[hidden]", state="attached", timeout=60000)
-        if name == "default" and ("panel-collapsed" not in (page.get_attribute("body", "class") or "") or not page.is_checked("#use-flash") or "status=a" not in page.url):
+        if name == "default" and ("panel-collapsed" not in (page.get_attribute("body", "class") or "") or not page.is_checked("#use-flash") or "status=a" not in page.url or "poiConvenience=1&poiMichinoeki=1&poiMall=1" not in page.url):
             errors.append("side panel should start collapsed and FLASH should be on by default")
         if name == "default":
             page.wait_for_timeout(1500)
@@ -150,11 +150,11 @@ with sync_playwright() as p:
                 errors.append("zoom label guidance is missing")
             if page.locator("#power-key img").count() != 3:
                 errors.append("charger power tier legend is missing")
-            if page.locator('[data-poi][aria-pressed="true"]').count():
-                errors.append("POI layers should be off by default")
+            if page.locator('[data-poi][aria-pressed="true"]').count() != 3:
+                errors.append("POI layers should be on by default")
             page.click('[data-poi="poiMichinoeki"]')
-            page.wait_for_timeout(2500)
-            if page.get_attribute('[data-poi="poiMichinoeki"]', "aria-pressed") != "true" or "poiMichinoeki=1" not in page.url:
+            page.wait_for_timeout(500)
+            if page.get_attribute('[data-poi="poiMichinoeki"]', "aria-pressed") != "false" or "poiMichinoeki=0" not in page.url:
                 errors.append("michi-no-eki toggle did not update state")
             page.click('[data-poi="poiMichinoeki"]')
             if page.get_attribute("#smart-toll-toggle", "aria-pressed") != "true" or not page.is_visible("#toll-key"):

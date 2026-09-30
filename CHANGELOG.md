@@ -4,6 +4,13 @@
 サイト上の表示：[リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)。バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 充電器データの週次自動更新はバージョンに含めません。
 
+## [1.14.1](https://github.com/akhayash/tesla-sc-japan/compare/v1.14.0...v1.14.1) - 2026-09-30
+
+**周辺施設を初期表示**
+
+### 変更
+- 周辺施設（コンビニ・道の駅・モール）を初期状態で表示（コンビニは市街地まで拡大すると表示）
+
 ## [1.14.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.13.4...v1.14.0) - 2026-09-30
 
 **初期表示をシンプルに（場所の検索だけ）**

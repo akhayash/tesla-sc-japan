@@ -9,9 +9,9 @@
   <link rel="icon" href="favicon.svg?v=2" type="image/svg+xml">
   <link rel="icon" href="favicon-32.png?v=2" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
-  <link rel="stylesheet" href="style.css?v=20260929-hereicon">
+  <link rel="stylesheet" href="style.css?v=20260930-route">
 </head>
-<body>
+<body class="panel-collapsed">
   <aside id="panel">
     <header class="panel-header">
       <div class="brand">
@@ -220,7 +220,7 @@
     </footer>
   </aside>
 
-  <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="true" aria-label="サイドパネルを閉じる"></button>
+  <button type="button" id="panel-toggle" aria-controls="panel" aria-expanded="false" aria-label="サイドパネルを開く"></button>
   <main id="map"></main>
   <div id="tooltip" hidden></div>
   <div id="aerial-viewer" hidden role="dialog" aria-modal="true" aria-labelledby="viewer-title">
@@ -246,11 +246,11 @@
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pmtiles@4.3.0/dist/pmtiles.js"></script>
   <script src="hazard-overlay.js?v=20260925-search"></script>
-  <script src="search.js?v=20260927-icons"></script>
+  <script src="search.js?v=20260930-route"></script>
   <script src="version.js?v=20260926-ver"></script>
   <script src="basemap-switcher.js?v=20260925-base"></script>
   <script src="config.js?v=20260927-v120"></script>
-  <script src="route.js?v=20260929-hereicon"></script>
-  <script src="app.js?v=20260928-noexp"></script>
+  <script src="route.js?v=20260930-open"></script>
+  <script src="app.js?v=20260930-defaults"></script>
 </body>
 </html>

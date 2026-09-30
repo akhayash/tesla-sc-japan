@@ -13,7 +13,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 CASES = {
     "default": "",
-    "a_pref": "#mode=A&unit=pref&metric=p",
+    "a_pref": "#mode=A&unit=pref&metric=p&tesla=1&flash=0",
     "a_muni_access": "#mode=A&unit=muni_city&metric=a&rankMin=100000",
     "a_ward_dist": "#mode=A&unit=muni_ward&metric=d&rankMin=100000",
     "a_muni_count": "#mode=A&unit=muni_ward&metric=n&weight=s",
@@ -105,6 +105,14 @@ with sync_playwright() as p:
         page.goto("about:blank")
         page.goto(BASE + h)
         page.wait_for_selector("#loading[hidden]", state="attached", timeout=60000)
+        if name == "default" and ("panel-collapsed" not in (page.get_attribute("body", "class") or "") or not page.is_checked("#use-flash") or "status=a" not in page.url):
+            errors.append("side panel should start collapsed and FLASH should be on by default")
+        if name == "default":
+            page.wait_for_timeout(1500)
+            page.screenshot(path=str(OUT / "default_collapsed.png"))
+        if "panel-collapsed" in (page.get_attribute("body", "class") or ""):
+            page.click("#panel-toggle")
+            page.wait_for_timeout(250)
         page.wait_for_timeout(2500)
         page.screenshot(path=str(OUT / f"{name}.png"))
         info = page.evaluate("() => ({legend: document.querySelector('#legend').innerText.slice(0,120), rank: document.querySelector('#rank-list').innerText.slice(0,200), summary: document.querySelector('#summary').innerText})")
@@ -238,8 +246,8 @@ with sync_playwright() as p:
             if not page.locator("[data-route-insert]").count():
                 errors.append("add-waypoint button missing")
             page.click("[data-route-close]")
-            if not page.is_visible(".route-card.idle") or "ro=" in page.url:
-                errors.append("clearing the route did not return the card to its compact search state")
+            if page.is_visible(".route-card") or not page.is_visible(".ms-route") or "ro=" in page.url:
+                errors.append("closing the route did not return to the place search only")
         if name == "route_point":
             n0 = len(route_requests)
             page.mouse.click(700, 450, button="right")
@@ -288,11 +296,18 @@ with sync_playwright() as p:
             if "現在地" not in page.inner_text(".route-card") or len(route_requests) > n0 + 2:
                 errors.append("card 'current location' button did not restore the route")
             page.screenshot(path=str(OUT / "route_here.png"))
-        if name == "default" and not page.is_visible('.route-card.idle [data-route-q="o"]'):
-            errors.append("route search panel should be shown from the start")
+        if name == "default":
+            if page.is_visible(".route-card") or not page.is_visible(".ms-route"):
+                errors.append("only the place search (with a directions button) should be shown at first")
+            page.click(".ms-route")
+            page.wait_for_timeout(300)
+            if not page.is_visible('.route-card.idle [data-route-q="o"]') or page.evaluate("document.activeElement?.dataset?.routeQ") != "o":
+                errors.append("directions button did not open the route card with the start field focused")
+            page.screenshot(path=str(OUT / "default_route_open.png"))
         if name == "default" and page.inner_text(".route-card.idle .route-usage") != "412/2,450":
             errors.append("HERE usage was not shown on the idle route card")
         if name == "route_search":
+            page.click(".ms-route")
             n0 = len(route_requests)
             page.fill('[data-route-q="o"]', "浜松IC")
             page.press('[data-route-q="o"]', "Enter")

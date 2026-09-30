@@ -4,6 +4,15 @@
 サイト上の表示：[リリースノート](https://akhayash.github.io/tesla-sc-japan/releases.html)。バージョンは [Semantic Versioning](https://semver.org/lang/ja/) に従います。
 充電器データの週次自動更新はバージョンに含めません。
 
+## [1.14.0](https://github.com/akhayash/tesla-sc-japan/compare/v1.13.4...v1.14.0) - 2026-09-30
+
+**初期表示をシンプルに（場所の検索だけ）**
+
+### 変更
+- 地図左上は場所の検索欄だけにし、経路・料金は検索欄の経路アイコンから開く形に変更（Googleマップと同じ操作）。経路を閉じると検索欄だけに戻る
+- サイドパネルを初期状態で閉じるように変更
+- 初期表示を SC＋FLASH、計画・建設中を含む、に変更
+
 ## [1.13.4](https://github.com/akhayash/tesla-sc-japan/compare/v1.13.3...v1.13.4) - 2026-09-29
 
 **経路の「現在地」を入力欄のアイコンに**

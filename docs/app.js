@@ -78,8 +78,8 @@
   ];
 
   const state = {
-    mode: 'B', unit: 'pref', metric: 'p', weight: 't', status: 'o',
-    layer: 'none', bw: '10', tesla: true, flash: false,
+    mode: 'B', unit: 'pref', metric: 'p', weight: 't', status: 'a',
+    layer: 'none', bw: '10', tesla: true, flash: true,
     showSc: true, popAlpha: true, expressway: true, roadFacilities: true,
     facilityIc: true, facilityJct: true, facilitySmart: true, facilitySa: true, facilityPa: true,
     poiConvenience: false, poiMichinoeki: false, poiMall: false,

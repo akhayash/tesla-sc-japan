@@ -203,6 +203,9 @@
         <input type="search" id="map-search-input" placeholder="地名・住所・充電器・SA/PAを検索" autocomplete="off" spellcheck="false"
           role="combobox" aria-expanded="false" aria-controls="map-search-list" aria-autocomplete="list" aria-label="地図を検索">
         <button type="button" class="ms-clear" aria-label="検索をクリア" hidden>×</button>
+        ${window.ROUTE_API ? `<button type="button" class="ms-route" aria-label="経路・料金" title="経路・料金">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 21.2 12 12 21.2 2.8 12Z"/><path d="M9.5 14.5v-3a1.5 1.5 0 0 1 1.5-1.5h4m-2-2 2 2-2 2" fill="none"/></svg>
+        </button>` : ''}
         <button type="button" class="ms-geo" aria-label="現在地を表示" title="現在地">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
         </button>
@@ -237,6 +240,7 @@
       input.value = ''; clearBtn.hidden = true; closeList(); clearSelection(); input.focus();
     });
     $('.ms-geo', root).addEventListener('click', locate);
+    $('.ms-route', root)?.addEventListener('click', () => window.RouteTool?.open());
     list.addEventListener('mousedown', (e) => e.preventDefault());
     list.addEventListener('click', (e) => {
       const li = e.target.closest('li[data-i]');

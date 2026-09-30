@@ -779,7 +779,10 @@
     if (!card) return;
     const focused = document.activeElement?.dataset?.routeQ;
     const idle = !S.o && !S.d && !S.vias.length;
-    card.hidden = false;
+    // like Google Maps: only the place search is shown until directions are opened
+    if (!idle) S.open = true;
+    card.hidden = !S.open;
+    if (card.hidden) return;
     card.classList.toggle('idle', idle);
     const r = S.result;
     let body = '';
@@ -811,7 +814,7 @@
       <div class="route-head"><h3>経路・料金</h3>
         ${idle ? '' : `<button type="button" class="route-icon" data-route-swap aria-label="出発と到着を入れ替え" title="入れ替え">${ICON.swap}</button>`}
         <button type="button" class="route-icon" data-route-collapse aria-expanded="${!S.collapsed}" aria-label="${S.collapsed ? '開く' : '折りたたむ'}" title="${S.collapsed ? '開く' : '折りたたむ'}">${S.collapsed ? ICON.expand : ICON.collapse}</button>
-        ${idle ? '' : `<button type="button" class="route-icon" data-route-close aria-label="経路をクリア" title="クリア">${ICON.close}</button>`}</div>`;
+        <button type="button" class="route-icon" data-route-close aria-label="経路を閉じる" title="閉じる">${ICON.close}</button></div>`;
     if (S.collapsed) {
       const epName = (ep) => (ep ? esc(nfkc(ep.name)) : '未選択');
       const etc = S.analysis?.smartApplied ? S.analysis.effective : r?.etc;
@@ -1042,6 +1045,7 @@
     renderCard();
   }
   function clearAll() {
+    S.open = false;
     S.o = S.d = null;
     S.vias = [];
     S.direct = null;
@@ -1134,8 +1138,18 @@
     restore();
   }
 
+  /** Open the (empty) directions card from the map search, focusing the start field. */
+  function open() {
+    if (!card) return;
+    S.open = true;
+    S.collapsed = false;
+    renderCard();
+    card.querySelector('[data-route-q="o"]')?.focus();
+  }
+
   window.RouteTool = {
     init,
+    open,
     buttonsHtml,
     facilityButtonsHtml,
     writeHash,

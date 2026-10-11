@@ -1,5 +1,5 @@
 {
- "as_of": "2026-10-04",
+ "as_of": "2026-10-11",
  "sites": 157,
  "stalls": 772,
  "people_per_stall": 163000,
@@ -113,7 +113,7 @@
  "planned": {
   "within30_now": 84,
   "within30_all": 86,
-  "planned_sites": 16,
+  "planned_sites": 17,
   "still_isolated": [
    "姫路市",
    "福山市",
@@ -2090,7 +2090,7 @@
    "charger_share": 3.5,
    "sites": 6,
    "stalls": 27,
-   "planned_sites": 0,
+   "planned_sites": 1,
    "people_per_stall": 190000,
    "rank": 17,
    "mean_km": 13.1,
@@ -2136,7 +2136,7 @@
     "八女市"
    ],
    "within30_now": 86,
-   "within30_all": 94,
+   "within30_all": 97,
    "bbox": [
     130.206,
     33.038,
@@ -2343,7 +2343,7 @@
       130.9423,
       33.3114
      ],
-     "still": true
+     "still": false
     },
     {
      "name": "宇佐市",

@@ -1,11 +1,11 @@
 {
- "as_of": "2026-10-25",
- "sites": 157,
- "stalls": 772,
- "people_per_stall": 163000,
+ "as_of": "2026-11-01",
+ "sites": 158,
+ "stalls": 778,
+ "people_per_stall": 162000,
  "metros": {
   "people": 31,
-  "chargers": 44
+  "chargers": 45
  },
  "regions": [
   {
@@ -18,25 +18,25 @@
    "name": "東北",
    "people": 7,
    "chargers": 4,
-   "ratio": 0.63
+   "ratio": 0.62
   },
   {
    "name": "関東",
    "people": 35,
    "chargers": 44,
-   "ratio": 1.27
+   "ratio": 1.28
   },
   {
    "name": "中部",
    "people": 17,
    "chargers": 20,
-   "ratio": 1.21
+   "ratio": 1.2
   },
   {
    "name": "近畿",
    "people": 18,
    "chargers": 17,
-   "ratio": 0.97
+   "ratio": 0.96
   },
   {
    "name": "中国",
@@ -112,7 +112,7 @@
  },
  "planned": {
   "within30_now": 84,
-  "within30_all": 86,
+  "within30_all": 87,
   "planned_sites": 17,
   "still_isolated": [
    "姫路市",
@@ -257,7 +257,7 @@
    "04": 11,
    "05": 22,
    "06": 1,
-   "07": 44,
+   "07": 45,
    "08": 0,
    "09": 0,
    "10": 0,
@@ -265,7 +265,7 @@
    "12": 0,
    "13": 0,
    "14": 0,
-   "15": 62,
+   "15": 63,
    "16": 0,
    "17": 8,
    "18": 0,
@@ -283,19 +283,19 @@
    "30": 0,
    "31": 44,
    "32": 82,
-   "33": 8,
+   "33": 9,
    "34": 30,
    "35": 0,
    "36": 0,
-   "37": 8,
-   "38": 38,
+   "37": 9,
+   "38": 39,
    "39": 12,
    "40": 7,
-   "41": 43,
+   "41": 44,
    "42": 98,
    "43": 100,
-   "44": 22,
-   "45": 26,
+   "44": 23,
+   "45": 27,
    "46": 19,
    "47": 100
   },
@@ -312,7 +312,7 @@
    "10": 194000,
    "11": 223000,
    "12": 150000,
-   "13": 100000,
+   "13": 96000,
    "14": 110000,
    "15": 550000,
    "16": 259000,
@@ -751,7 +751,7 @@
    "low_examples": [
     "小国町",
     "飯豊町",
-    "米沢市"
+    "川西町"
    ],
    "within30_now": 79,
    "within30_all": 79,
@@ -808,7 +808,7 @@
      "still": false
     }
    ],
-   "low_ratio": 44,
+   "low_ratio": 45,
    "low_examples": [
     "いわき市",
     "福島市",
@@ -916,7 +916,7 @@
    "name": "埼玉県",
    "pop": 7344765,
    "people_share": 5.8,
-   "charger_share": 4.3,
+   "charger_share": 4.2,
    "sites": 7,
    "stalls": 33,
    "planned_sites": 0,
@@ -974,12 +974,12 @@
    "name": "東京都",
    "pop": 14047594,
    "people_share": 11.1,
-   "charger_share": 18.1,
-   "sites": 28,
-   "stalls": 140,
-   "planned_sites": 1,
-   "people_per_stall": 100000,
-   "rank": 4,
+   "charger_share": 18.8,
+   "sites": 29,
+   "stalls": 146,
+   "planned_sites": 0,
+   "people_per_stall": 96000,
+   "rank": 3,
    "mean_km": 3.6,
    "bands": [
     98,
@@ -1007,7 +1007,7 @@
    "name": "神奈川県",
    "pop": 9237337,
    "people_share": 7.3,
-   "charger_share": 10.9,
+   "charger_share": 10.8,
    "sites": 18,
    "stalls": 84,
    "planned_sites": 0,
@@ -1105,7 +1105,7 @@
      "still": true
     }
    ],
-   "low_ratio": 62,
+   "low_ratio": 63,
    "low_examples": [
     "長岡市",
     "上越市",
@@ -1223,7 +1223,7 @@
    "low_ratio": 0,
    "low_examples": [],
    "within30_now": 81,
-   "within30_all": 81,
+   "within30_all": 82,
    "bbox": [
     135.556,
     35.463,
@@ -1297,7 +1297,7 @@
    "name": "岐阜県",
    "pop": 1978742,
    "people_share": 1.6,
-   "charger_share": 1.6,
+   "charger_share": 1.5,
    "sites": 3,
    "stalls": 12,
    "planned_sites": 0,
@@ -1389,7 +1389,7 @@
    "stalls": 18,
    "planned_sites": 0,
    "people_per_stall": 98000,
-   "rank": 3,
+   "rank": 4,
    "mean_km": 13.8,
    "bands": [
     40,
@@ -1455,7 +1455,7 @@
    "charger_share": 1.8,
    "sites": 3,
    "stalls": 14,
-   "planned_sites": 2,
+   "planned_sites": 3,
    "people_per_stall": 184000,
    "rank": 16,
    "mean_km": 13.0,
@@ -1501,7 +1501,7 @@
     "宮津市"
    ],
    "within30_now": 88,
-   "within30_all": 98,
+   "within30_all": 100,
    "bbox": [
     135.056,
     34.729,
@@ -1513,7 +1513,7 @@
    "name": "大阪府",
    "pop": 8837685,
    "people_share": 7.0,
-   "charger_share": 7.8,
+   "charger_share": 7.7,
    "sites": 10,
    "stalls": 60,
    "planned_sites": 0,
@@ -1788,7 +1788,7 @@
     2
    ],
    "isolated": [],
-   "low_ratio": 8,
+   "low_ratio": 9,
    "low_examples": [
     "笠岡市",
     "井原市",
@@ -1807,7 +1807,7 @@
    "name": "広島県",
    "pop": 2799702,
    "people_share": 2.2,
-   "charger_share": 1.6,
+   "charger_share": 1.5,
    "sites": 2,
    "stalls": 12,
    "planned_sites": 0,
@@ -1975,7 +1975,7 @@
      "still": true
     }
    ],
-   "low_ratio": 8,
+   "low_ratio": 9,
    "low_examples": [
     "観音寺市",
     "三豊市"
@@ -2035,7 +2035,7 @@
      "still": true
     }
    ],
-   "low_ratio": 38,
+   "low_ratio": 39,
    "low_examples": [
     "新居浜市",
     "今治市",
@@ -2172,7 +2172,7 @@
      "still": false
     }
    ],
-   "low_ratio": 43,
+   "low_ratio": 44,
    "low_examples": [
     "佐賀市",
     "伊万里市",
@@ -2355,7 +2355,7 @@
      "still": true
     }
    ],
-   "low_ratio": 22,
+   "low_ratio": 23,
    "low_examples": [
     "中津市",
     "日田市",
@@ -2407,7 +2407,7 @@
      "still": true
     }
    ],
-   "low_ratio": 26,
+   "low_ratio": 27,
    "low_examples": [
     "延岡市",
     "日向市",

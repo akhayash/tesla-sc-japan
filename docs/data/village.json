@@ -1,8 +1,8 @@
 {
- "as_of": "2026-11-15",
- "sites": 158,
- "stalls": 778,
- "people_per_stall": 162000,
+ "as_of": "2026-11-22",
+ "sites": 159,
+ "stalls": 782,
+ "people_per_stall": 161000,
  "metros": {
   "people": 31,
   "chargers": 45
@@ -12,49 +12,49 @@
    "name": "北海道",
    "people": 4,
    "chargers": 2,
-   "ratio": 0.5
+   "ratio": 0.49
   },
   {
    "name": "東北",
    "people": 7,
-   "chargers": 4,
-   "ratio": 0.62
+   "chargers": 5,
+   "ratio": 0.69
   },
   {
    "name": "関東",
    "people": 35,
    "chargers": 44,
-   "ratio": 1.28
+   "ratio": 1.27
   },
   {
    "name": "中部",
    "people": 17,
    "chargers": 20,
-   "ratio": 1.2
+   "ratio": 1.19
   },
   {
    "name": "近畿",
    "people": 18,
-   "chargers": 17,
-   "ratio": 0.96
+   "chargers": 16,
+   "ratio": 0.93
   },
   {
    "name": "中国",
    "people": 6,
    "chargers": 4,
-   "ratio": 0.63
+   "ratio": 0.71
   },
   {
    "name": "四国",
    "people": 3,
    "chargers": 3,
-   "ratio": 0.88
+   "ratio": 0.87
   },
   {
    "name": "九州・沖縄",
    "people": 11,
    "chargers": 6,
-   "ratio": 0.55
+   "ratio": 0.54
   }
  ],
  "bands": [
@@ -66,7 +66,7 @@
   {
    "from_km": 10,
    "to_km": 30,
-   "people": 24
+   "people": 25
   },
   {
    "from_km": 30,
@@ -76,12 +76,11 @@
   {
    "from_km": 50,
    "to_km": null,
-   "people": 8
+   "people": 7
   }
  ],
  "zero_prefs": {
   "names": [
-   "島根県",
    "佐賀県",
    "長崎県"
   ],
@@ -96,14 +95,13 @@
    "旭川市",
    "長岡市",
    "佐世保市",
-   "八戸市",
-   "松江市"
+   "八戸市"
   ],
   "min_pop": 200000,
   "people": 2
  },
  "low_ratio": {
-  "people": 14,
+  "people": 13,
   "examples": [
    "札幌市",
    "熊本市",
@@ -111,9 +109,9 @@
   ]
  },
  "planned": {
-  "within30_now": 84,
+  "within30_now": 85,
   "within30_all": 87,
-  "planned_sites": 17,
+  "planned_sites": 15,
   "still_isolated": [
    "姫路市",
    "福山市",
@@ -197,7 +195,6 @@
    ]
   },
   "zero": [
-   "32",
    "41",
    "42"
   ],
@@ -208,7 +205,7 @@
    "04": 54,
    "05": 22,
    "06": 33,
-   "07": 18,
+   "07": 31,
    "08": 31,
    "09": 27,
    "10": 48,
@@ -233,7 +230,7 @@
    "29": 39,
    "30": 11,
    "31": 30,
-   "32": 0,
+   "32": 22,
    "33": 56,
    "34": 43,
    "35": 12,
@@ -253,11 +250,11 @@
   "low": {
    "01": 77,
    "02": 53,
-   "03": 42,
+   "03": 43,
    "04": 11,
-   "05": 22,
-   "06": 1,
-   "07": 45,
+   "05": 23,
+   "06": 0,
+   "07": 19,
    "08": 0,
    "09": 0,
    "10": 0,
@@ -276,21 +273,21 @@
    "23": 0,
    "24": 0,
    "25": 0,
-   "26": 3,
+   "26": 4,
    "27": 0,
    "28": 11,
    "29": 0,
    "30": 0,
    "31": 44,
-   "32": 82,
+   "32": 9,
    "33": 9,
-   "34": 30,
-   "35": 0,
+   "34": 29,
+   "35": 1,
    "36": 0,
    "37": 9,
    "38": 39,
    "39": 12,
-   "40": 7,
+   "40": 8,
    "41": 44,
    "42": 98,
    "43": 100,
@@ -306,7 +303,7 @@
    "04": 288000,
    "05": 240000,
    "06": 134000,
-   "07": 458000,
+   "07": 229000,
    "08": 205000,
    "09": 121000,
    "10": 194000,
@@ -325,13 +322,13 @@
    "23": 130000,
    "24": 98000,
    "25": 353000,
-   "26": 184000,
+   "26": 258000,
    "27": 147000,
    "28": 195000,
    "29": 331000,
    "30": 231000,
    "31": 138000,
-   "32": null,
+   "32": 168000,
    "33": 236000,
    "34": 233000,
    "35": 336000,
@@ -412,14 +409,6 @@
      40.5096
     ],
     "still": true
-   },
-   {
-    "name": "松江市",
-    "pt": [
-     133.0663,
-     35.4632
-    ],
-    "still": false
    }
   ]
  },
@@ -428,12 +417,12 @@
    "name": "北海道",
    "pop": 5224614,
    "people_share": 4.1,
-   "charger_share": 2.1,
+   "charger_share": 2.0,
    "sites": 4,
    "stalls": 16,
    "planned_sites": 5,
    "people_per_stall": 327000,
-   "rank": 35,
+   "rank": 37,
    "mean_km": 42.2,
    "bands": [
     45,
@@ -503,7 +492,7 @@
    "stalls": 3,
    "planned_sites": 0,
    "people_per_stall": 413000,
-   "rank": 40,
+   "rank": 42,
    "mean_km": 37.9,
    "bands": [
     20,
@@ -601,7 +590,7 @@
      "still": true
     }
    ],
-   "low_ratio": 42,
+   "low_ratio": 43,
    "low_examples": [
     "奥州市",
     "一関市",
@@ -625,12 +614,12 @@
    "stalls": 8,
    "planned_sites": 0,
    "people_per_stall": 288000,
-   "rank": 34,
-   "mean_km": 18.5,
+   "rank": 36,
+   "mean_km": 18.1,
    "bands": [
     54,
-    23,
-    17,
+    26,
+    14,
     6
    ],
    "isolated": [
@@ -668,7 +657,7 @@
     "栗原市",
     "気仙沼市"
    ],
-   "within30_now": 76,
+   "within30_now": 79,
    "within30_all": 79,
    "bbox": [
     140.631,
@@ -686,7 +675,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 240000,
-   "rank": 28,
+   "rank": 29,
    "mean_km": 34.3,
    "bands": [
     22,
@@ -714,7 +703,7 @@
      "still": true
     }
    ],
-   "low_ratio": 22,
+   "low_ratio": 23,
    "low_examples": [
     "大館市",
     "能代市",
@@ -739,7 +728,7 @@
    "planned_sites": 0,
    "people_per_stall": 134000,
    "rank": 9,
-   "mean_km": 19.4,
+   "mean_km": 19.3,
    "bands": [
     33,
     46,
@@ -747,11 +736,9 @@
     1
    ],
    "isolated": [],
-   "low_ratio": 1,
+   "low_ratio": 0,
    "low_examples": [
-    "小国町",
-    "飯豊町",
-    "川西町"
+    "小国町"
    ],
    "within30_now": 79,
    "within30_all": 79,
@@ -766,18 +753,18 @@
    "name": "福島県",
    "pop": 1833152,
    "people_share": 1.5,
-   "charger_share": 0.5,
-   "sites": 1,
-   "stalls": 4,
-   "planned_sites": 1,
-   "people_per_stall": 458000,
-   "rank": 42,
-   "mean_km": 35.1,
+   "charger_share": 1.0,
+   "sites": 2,
+   "stalls": 8,
+   "planned_sites": 0,
+   "people_per_stall": 229000,
+   "rank": 24,
+   "mean_km": 27.6,
    "bands": [
-    18,
-    21,
-    35,
-    26
+    31,
+    29,
+    19,
+    21
    ],
    "isolated": [
     {
@@ -797,24 +784,15 @@
       37.6418
      ],
      "still": true
-    },
-    {
-     "name": "伊達市",
-     "pop": 58240,
-     "pt": [
-      140.5671,
-      37.8194
-     ],
-     "still": false
     }
    ],
-   "low_ratio": 45,
+   "low_ratio": 19,
    "low_examples": [
     "いわき市",
-    "福島市",
-    "南相馬市"
+    "広野町",
+    "西会津町"
    ],
-   "within30_now": 39,
+   "within30_now": 60,
    "within30_all": 60,
    "bbox": [
     139.669,
@@ -858,7 +836,7 @@
    "name": "栃木県",
    "pop": 1933146,
    "people_share": 1.5,
-   "charger_share": 2.1,
+   "charger_share": 2.0,
    "sites": 3,
    "stalls": 16,
    "planned_sites": 0,
@@ -974,7 +952,7 @@
    "name": "東京都",
    "pop": 14047594,
    "people_share": 11.1,
-   "charger_share": 18.8,
+   "charger_share": 18.7,
    "sites": 29,
    "stalls": 146,
    "planned_sites": 0,
@@ -1007,7 +985,7 @@
    "name": "神奈川県",
    "pop": 9237337,
    "people_share": 7.3,
-   "charger_share": 10.8,
+   "charger_share": 10.7,
    "sites": 18,
    "stalls": 84,
    "planned_sites": 0,
@@ -1041,7 +1019,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 550000,
-   "rank": 44,
+   "rank": 45,
    "mean_km": 34.4,
    "bands": [
     25,
@@ -1129,7 +1107,7 @@
    "stalls": 4,
    "planned_sites": 1,
    "people_per_stall": 259000,
-   "rank": 29,
+   "rank": 31,
    "mean_km": 14.7,
    "bands": [
     38,
@@ -1158,7 +1136,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 283000,
-   "rank": 33,
+   "rank": 35,
    "mean_km": 18.6,
    "bands": [
     49,
@@ -1221,7 +1199,10 @@
     }
    ],
    "low_ratio": 0,
-   "low_examples": [],
+   "low_examples": [
+    "美浜町",
+    "若狭町"
+   ],
    "within30_now": 81,
    "within30_all": 82,
    "bbox": [
@@ -1264,7 +1245,7 @@
    "name": "長野県",
    "pop": 2048011,
    "people_share": 1.6,
-   "charger_share": 2.1,
+   "charger_share": 2.0,
    "sites": 4,
    "stalls": 16,
    "planned_sites": 1,
@@ -1326,7 +1307,7 @@
    "name": "静岡県",
    "pop": 3633202,
    "people_share": 2.9,
-   "charger_share": 6.2,
+   "charger_share": 6.1,
    "sites": 8,
    "stalls": 48,
    "planned_sites": 1,
@@ -1355,7 +1336,7 @@
    "name": "愛知県",
    "pop": 7542415,
    "people_share": 6.0,
-   "charger_share": 7.5,
+   "charger_share": 7.4,
    "sites": 10,
    "stalls": 58,
    "planned_sites": 1,
@@ -1418,7 +1399,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 353000,
-   "rank": 39,
+   "rank": 41,
    "mean_km": 18.4,
    "bands": [
     38,
@@ -1452,13 +1433,13 @@
    "name": "京都府",
    "pop": 2578087,
    "people_share": 2.0,
-   "charger_share": 1.8,
-   "sites": 3,
-   "stalls": 14,
+   "charger_share": 1.3,
+   "sites": 2,
+   "stalls": 10,
    "planned_sites": 3,
-   "people_per_stall": 184000,
-   "rank": 16,
-   "mean_km": 13.0,
+   "people_per_stall": 258000,
+   "rank": 30,
+   "mean_km": 13.3,
    "bands": [
     69,
     20,
@@ -1494,7 +1475,7 @@
      "still": false
     }
    ],
-   "low_ratio": 3,
+   "low_ratio": 4,
    "low_examples": [
     "京丹後市",
     "与謝野町",
@@ -1617,7 +1598,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 331000,
-   "rank": 36,
+   "rank": 38,
    "mean_km": 12.0,
    "bands": [
     39,
@@ -1646,7 +1627,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 231000,
-   "rank": 24,
+   "rank": 25,
    "mean_km": 21.6,
    "bands": [
     11,
@@ -1676,12 +1657,12 @@
    "planned_sites": 0,
    "people_per_stall": 138000,
    "rank": 11,
-   "mean_km": 43.1,
+   "mean_km": 31.9,
    "bands": [
     30,
-    11,
-    16,
-    43
+    12,
+    26,
+    32
    ],
    "isolated": [
     {
@@ -1713,38 +1694,20 @@
    "name": "島根県",
    "pop": 671126,
    "people_share": 0.5,
-   "charger_share": 0.0,
-   "sites": 0,
-   "stalls": 0,
-   "planned_sites": 1,
-   "people_per_stall": null,
-   "rank": 45,
-   "mean_km": 94.9,
+   "charger_share": 0.5,
+   "sites": 1,
+   "stalls": 4,
+   "planned_sites": 0,
+   "people_per_stall": 168000,
+   "rank": 15,
+   "mean_km": 32.7,
    "bands": [
-    0,
-    0,
-    2,
-    98
+    22,
+    28,
+    27,
+    23
    ],
    "isolated": [
-    {
-     "name": "松江市",
-     "pop": 203616,
-     "pt": [
-      133.0663,
-      35.4632
-     ],
-     "still": false
-    },
-    {
-     "name": "出雲市",
-     "pop": 172775,
-     "pt": [
-      132.7607,
-      35.3749
-     ],
-     "still": false
-    },
     {
      "name": "浜田市",
      "pop": 54592,
@@ -1755,14 +1718,14 @@
      "still": true
     }
    ],
-   "low_ratio": 82,
+   "low_ratio": 9,
    "low_examples": [
-    "松江市",
-    "出雲市",
-    "安来市"
+    "安来市",
+    "隠岐の島町",
+    "松江市"
    ],
-   "within30_now": 0,
-   "within30_all": 49,
+   "within30_now": 50,
+   "within30_all": 50,
    "bbox": [
     131.781,
     34.454,
@@ -1779,7 +1742,7 @@
    "stalls": 8,
    "planned_sites": 0,
    "people_per_stall": 236000,
-   "rank": 26,
+   "rank": 27,
    "mean_km": 14.3,
    "bands": [
     56,
@@ -1812,8 +1775,8 @@
    "stalls": 12,
    "planned_sites": 0,
    "people_per_stall": 233000,
-   "rank": 25,
-   "mean_km": 21.2,
+   "rank": 26,
+   "mean_km": 21.0,
    "bands": [
     43,
     24,
@@ -1858,7 +1821,7 @@
      "still": true
     }
    ],
-   "low_ratio": 30,
+   "low_ratio": 29,
    "low_examples": [
     "福山市",
     "尾道市",
@@ -1882,7 +1845,7 @@
    "stalls": 4,
    "planned_sites": 1,
    "people_per_stall": 336000,
-   "rank": 38,
+   "rank": 40,
    "mean_km": 27.2,
    "bands": [
     12,
@@ -1901,7 +1864,7 @@
      "still": true
     }
    ],
-   "low_ratio": 0,
+   "low_ratio": 1,
    "low_examples": [
     "光市",
     "上関町",
@@ -1956,7 +1919,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 238000,
-   "rank": 27,
+   "rank": 28,
    "mean_km": 15.9,
    "bands": [
     46,
@@ -1998,7 +1961,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 334000,
-   "rank": 37,
+   "rank": 39,
    "mean_km": 26.9,
    "bands": [
     42,
@@ -2059,7 +2022,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 173000,
-   "rank": 15,
+   "rank": 16,
    "mean_km": 22.7,
    "bands": [
     52,
@@ -2129,7 +2092,7 @@
      "still": false
     }
    ],
-   "low_ratio": 7,
+   "low_ratio": 8,
    "low_examples": [
     "大牟田市",
     "柳川市",
@@ -2266,7 +2229,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 435000,
-   "rank": 41,
+   "rank": 43,
    "mean_km": 21.7,
    "bands": [
     43,
@@ -2318,7 +2281,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 281000,
-   "rank": 32,
+   "rank": 34,
    "mean_km": 22.3,
    "bands": [
     39,
@@ -2379,7 +2342,7 @@
    "stalls": 4,
    "planned_sites": 0,
    "people_per_stall": 267000,
-   "rank": 31,
+   "rank": 33,
    "mean_km": 29.9,
    "bands": [
     31,
@@ -2431,7 +2394,7 @@
    "stalls": 6,
    "planned_sites": 0,
    "people_per_stall": 265000,
-   "rank": 30,
+   "rank": 32,
    "mean_km": 42.8,
    "bands": [
     28,
@@ -2474,7 +2437,7 @@
    "stalls": 3,
    "planned_sites": 0,
    "people_per_stall": 489000,
-   "rank": 43,
+   "rank": 44,
    "mean_km": 39.7,
    "bands": [
     51,
